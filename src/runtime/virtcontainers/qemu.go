@@ -823,6 +823,16 @@ func (q *qemu) startSandbox(ctx context.Context, timeout int) error {
 
 	}
 
+	info, err := os.Stat(vmPath)
+	if err != nil {
+		q.Logger().WithError(err)
+	}
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		uid := int(stat.Uid)
+		gid := int(stat.Gid)
+		q.Logger().WithField("uid", uid).WithField("gid", gid).WithField("vmPath", vmPath).Info("###Debug###")
+	}
+
 	var strErr string
 	strErr, err = govmmQemu.LaunchQemu(q.qemuConfig, newQMPLogger())
 	if err != nil {
@@ -1015,11 +1025,11 @@ func (q *qemu) cleanupVM() error {
 	}
 
 	if rootless.IsRootless() {
-		rootlessDir := os.Getenv("XDG_RUNTIME_DIR")
-		if err := os.RemoveAll(rootlessDir); err != nil {
-			q.Logger().WithError(err).WithField("root-path", rootlessDir).
-				Warnf("failed to remove vm run-as-user root path")
-		}
+		//rootlessDir := os.Getenv("XDG_RUNTIME_DIR")
+		//if err := os.RemoveAll(rootlessDir); err != nil {
+		//	q.Logger().WithError(err).WithField("root-path", rootlessDir).
+		//		Warnf("failed to remove vm run-as-user root path")
+		//}
 
 		u, err := user.LookupId(strconv.Itoa(int(q.config.Uid)))
 		if err != nil {
