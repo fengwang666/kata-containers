@@ -1034,7 +1034,7 @@ func (q *qemu) cleanupVM() error {
 
 		_, err := os.Stat(rootlessDir)
 		if os.IsNotExist(err) {
-			q.Logger().WithField("rootlessDir", rootlessDir).WithError(err)
+			q.Logger().WithField("rootlessDir", rootlessDir).WithError(err).Warn("the rootless Dir doesn't exist")
 		} else {
 			q.Logger().WithField("rootlessDir", rootlessDir).Warn("the rootless Dir is not removed")
 		}
