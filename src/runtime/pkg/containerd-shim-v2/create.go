@@ -10,8 +10,14 @@ package containerdshim
 import (
 	"context"
 	"fmt"
+	containerd_types "github.com/containerd/containerd/api/types"
+	"github.com/containerd/containerd/mount"
+	taskAPI "github.com/containerd/containerd/runtime/v2/task"
+	"github.com/containerd/typeurl"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/utils"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/rootless"
+	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/pkg/errors"
 	"math/rand"
 	"os"
 	"os/user"
@@ -19,13 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
-
-	containerd_types "github.com/containerd/containerd/api/types"
-	"github.com/containerd/containerd/mount"
-	taskAPI "github.com/containerd/containerd/runtime/v2/task"
-	"github.com/containerd/typeurl"
-	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/pkg/errors"
+	"time"
 
 	// only register the proto type
 	crioption "github.com/containerd/containerd/pkg/runtimeoptions/v1"
@@ -355,6 +355,7 @@ func createVmmUser() (string, error) {
 	// Add retries to mitigate temporary errors and race conditions. For example, the user already exists
 	// or another instance of the runtime is also creating a user.
 	maxAttempt := 5
+	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < maxAttempt; i++ {
 		userName = fmt.Sprintf("kata-%v", rand.Intn(100000))
 		_, err = utils.RunCommand([]string{useraddPath, "-M", "-s", nologinPath, userName, "-c", "\"Kata Containers temporary hypervisor user\""})
