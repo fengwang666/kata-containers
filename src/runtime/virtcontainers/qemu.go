@@ -1026,6 +1026,7 @@ func (q *qemu) cleanupVM() error {
 
 	if rootless.IsRootless() {
 		rootlessDir := os.Getenv("XDG_RUNTIME_DIR")
+		q.Logger().WithField("rootlessDir", rootlessDir).Info("remove rootless directory")
 		if err := os.RemoveAll(rootlessDir); err != nil {
 			q.Logger().WithError(err).WithField("root-path", rootlessDir).
 				Warnf("failed to remove vm run-as-user root path")
