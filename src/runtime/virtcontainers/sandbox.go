@@ -1692,7 +1692,7 @@ func (s *Sandbox) Stop(ctx context.Context, force bool) error {
 	if err := s.setSandboxState(types.StateStopped); err != nil {
 		return err
 	}
-	s.Logger().Debug("Skipping Remove network and store sandbox")
+	s.Logger().Info("Skipping Remove network and store sandbox")
 	// Remove the network.
 	//if err := s.removeNetwork(ctx); err != nil && !force {
 	//	return err

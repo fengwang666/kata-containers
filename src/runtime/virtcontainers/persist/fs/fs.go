@@ -230,6 +230,7 @@ func (fs *FS) Destroy(sandboxID string) error {
 	}
 
 	sandboxDir, err := fs.sandboxDir(sandboxID)
+	fs.Logger().WithField("sandbox dir", sandboxDir).Info("Destroy sandbox dir")
 	if err != nil {
 		return err
 	}
