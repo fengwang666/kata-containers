@@ -1698,9 +1698,9 @@ func (s *Sandbox) Stop(ctx context.Context, force bool) error {
 		return err
 	}
 
-	if err := s.storeSandbox(ctx); err != nil {
-		return err
-	}
+	//if err := s.storeSandbox(ctx); err != nil {
+	//	return err
+	//}
 
 	// Stop communicating with the agent.
 	if err := s.agent.disconnect(ctx); err != nil && !force {
