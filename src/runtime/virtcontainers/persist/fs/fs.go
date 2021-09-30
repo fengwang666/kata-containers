@@ -86,7 +86,13 @@ func (fs *FS) ToDisk(ss persistapi.SandboxState, cs map[string]persistapi.Contai
 	if err != nil {
 		return err
 	}
-
+	_, err = os.Stat(sandboxDir)
+	if os.IsNotExist(err) {
+		fs.Logger().WithField("sandboxDir", sandboxDir).Info("sandbox dir doesn't exist")
+	} else {
+		fs.Logger().WithField("sandboxDir", sandboxDir).Info("sandbox dir exist")
+	}
+	fs.Logger().WithField("sandboxDir", sandboxDir).Info("Write to sandbox")
 	if err := utils.MkdirAllWithInheritedOwner(sandboxDir, dirMode); err != nil {
 		return err
 	}
