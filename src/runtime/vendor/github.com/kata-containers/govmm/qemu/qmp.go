@@ -1523,7 +1523,6 @@ func (q *QMP) ExecuteCharDevUnixSocketAdd(ctx context.Context, id, path string, 
 		"backend": map[string]interface{}{
 			"type": "socket",
 			"data": map[string]interface{}{
-				"wait":   wait,
 				"server": server,
 				"addr": map[string]interface{}{
 					"type": "unix",
