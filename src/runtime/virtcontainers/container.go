@@ -1232,9 +1232,9 @@ func (c *Container) update(ctx context.Context, resources specs.LinuxResources) 
 		c.config.Resources.Memory.Limit = mem.Limit
 	}
 
-	if err := c.sandbox.updateResources(ctx); err != nil {
-		return err
-	}
+	//if err := c.sandbox.updateResources(ctx); err != nil {
+	//	return err
+	//}
 
 	// There currently isn't a notion of cpusets.cpus or mems being tracked
 	// inside of the guest. Make sure we clear these before asking agent to update
