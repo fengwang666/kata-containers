@@ -2192,6 +2192,46 @@ func (s *Sandbox) GetAgentURL() (string, error) {
 	return s.agent.getAgentURL()
 }
 
+// GuestVolumeStats return the filesystem stat of a given volume in the guest.
+func (s *Sandbox) GuestVolumeStats(ctx context.Context, volumePath string) ([]byte, error) {
+	guestMountPath, err := s.guestMountPath(volumePath)
+	if err != nil {
+		return nil, err
+	}
+	return s.agent.getGuestVolumeStats(ctx, guestMountPath)
+}
+
+// ResizeGuestVolume resizes a volume in the guest.
+func (s *Sandbox) ResizeGuestVolume(ctx context.Context, volumePath string, size uint64) error {
+	// TODO: invoke the resize block device feature provided by the hypervisor.
+	// if err := s.hypervisor.ResizeBlockDevice(ctx, devicePath, size); err != nil {
+	// 	   return err
+	//}
+	guestMountPath, err := s.guestMountPath(volumePath)
+	if err != nil {
+		return err
+	}
+	return s.agent.resizeGuestVolume(ctx, guestMountPath, size)
+}
+
+func (s *Sandbox) guestMountPath(volumePath string) (string, error) {
+	// verify the device even exists
+	if _, err := os.Stat(volumePath); err != nil {
+		s.Logger().WithError(err).WithField("volume", volumePath).Error("Cannot get stats for volume that doesn't exist")
+		return "", err
+	}
+
+	// verify that we have a mount in this sandbox who's source maps to this
+	for _, c := range s.containers {
+		for _, m := range c.mounts {
+			if volumePath == m.Source {
+				return m.GuestDeviceMount, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("mount %s not found in sandbox", volumePath)
+}
+
 // getSandboxCPUSet returns the union of each of the sandbox's containers' CPU sets'
 // cpus and mems as a string in canonical linux CPU/mems list format
 func (s *Sandbox) getSandboxCPUSet() (string, string, error) {
