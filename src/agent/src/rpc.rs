@@ -23,7 +23,8 @@ use oci::{LinuxNamespace, Root, Spec};
 use protobuf::{Message, RepeatedField, SingularPtrField};
 use protocols::agent::{
     AddSwapRequest, AgentDetails, CopyFileRequest, GuestDetailsResponse, Interfaces, Metrics,
-    OOMEvent, ReadStreamResponse, Routes, StatsContainerResponse, WaitProcessResponse,
+    OOMEvent, ReadStreamResponse, Routes, StatsContainerResponse, VolumeCondition,
+    VolumeStatsRequest, VolumeStatsResponse, VolumeUsage, VolumeUsage_Unit, WaitProcessResponse,
     WriteStreamResponse,
 };
 use protocols::empty::Empty;
@@ -42,6 +43,8 @@ use nix::sys::signal::Signal;
 use nix::sys::stat;
 use nix::unistd::{self, Pid};
 use rustjail::process::ProcessOperations;
+
+use sysinfo::{DiskExt, System, SystemExt};
 
 use crate::device::{add_devices, get_virtio_blk_pci_device_name, update_device_cgroup};
 use crate::linux_abi::*;
@@ -1249,6 +1252,31 @@ impl protocols::agent_ttrpc::AgentService for AgentService {
         Err(ttrpc_error!(ttrpc::Code::INTERNAL, ""))
     }
 
+    async fn get_volume_stats(
+        &self,
+        ctx: &TtrpcContext,
+        req: VolumeStatsRequest,
+    ) -> ttrpc::Result<VolumeStatsResponse> {
+        trace_rpc_call!(ctx, "get_volume_stats", req);
+        is_allowed!(req);
+
+        info!(sl!(), "get volume stats!");
+        let mut resp = VolumeStatsResponse::new();
+        // to get memory block size
+        match get_volume_stats(&req.volume_guest_path) {
+            Ok((u, v)) => {
+                resp.usage = RepeatedField::from_vec(vec![u]);
+                resp.volume_condition = SingularPtrField::some(v);
+            }
+            Err(e) => {
+                info!(sl!(), "fail to get volume stats!");
+                return Err(ttrpc_error!(ttrpc::Code::INTERNAL, e));
+            }
+        }
+
+        Ok(resp)
+    }
+
     async fn add_swap(
         &self,
         ctx: &TtrpcContext,
@@ -1334,6 +1362,23 @@ fn get_memory_info(block_size: bool, hotplug: bool) -> Result<(u64, bool)> {
     }
 
     Ok((size, plug))
+}
+
+fn get_volume_stats(path: &str) -> Result<(VolumeUsage, VolumeCondition)> {
+    let mut usage = VolumeUsage::new();
+    let condition = VolumeCondition::new();
+
+    let s = System::new();
+    for disk in s.disks() {
+        if disk.name().to_str().unwrap().eq(path) {
+            usage.available = disk.available_space();
+            usage.total = disk.total_space();
+            usage.used = usage.available - usage.total;
+            usage.unit = VolumeUsage_Unit::BYTES; // bytes
+        }
+    }
+
+    Ok((usage, condition))
 }
 
 pub fn have_seccomp() -> bool {

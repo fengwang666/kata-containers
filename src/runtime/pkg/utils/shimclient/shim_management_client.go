@@ -1,3 +1,8 @@
+// Copyright (c) 2022 Databricks Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+
 package shimclient
 
 import (
