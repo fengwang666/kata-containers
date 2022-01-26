@@ -109,8 +109,8 @@ install_experimental_kernel() {
 # Install static qemu asset
 install_qemu() {
 	info "build static qemu"
-	export qemu_repo="$(yq r $versions_yaml assets.hypervisor.qemu.url)"
-	export qemu_version="$(yq r $versions_yaml assets.hypervisor.qemu.version)"
+	export qemu_repo="$(yq r $versions_yaml assets.hypervisor.qemu-experimental.url)"
+	export qemu_version="$(yq r $versions_yaml assets.hypervisor.qemu-experimental.version)"
 	"${qemu_builder}"
 	tar xvf "${builddir}/kata-static-qemu.tar.gz" -C "${destdir}"
 }
