@@ -166,6 +166,8 @@ type SandboxConfig struct {
 	SandboxCgroupOnly bool
 
 	DisableGuestSeccomp bool
+
+	DisableResourceHotplug bool
 }
 
 // valid checks that the sandbox configuration is valid.
@@ -1331,11 +1333,13 @@ func (s *Sandbox) CreateContainer(ctx context.Context, contConfig ContainerConfi
 		}
 	}()
 
-	// Sandbox is responsible to update VM resources needed by Containers
-	// Update resources after having added containers to the sandbox, since
-	// container status is requiered to know if more resources should be added.
-	if err = s.updateResources(ctx); err != nil {
-		return nil, err
+	if !s.config.DisableResourceHotplug {
+		// Sandbox is responsible to update VM resources needed by Containers
+		// Update resources after having added containers to the sandbox, since
+		// container status is requiered to know if more resources should be added.
+		if err = s.updateResources(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	if err = s.resourceControllerUpdate(ctx); err != nil {
@@ -1368,12 +1372,14 @@ func (s *Sandbox) StartContainer(ctx context.Context, containerID string) (VCCon
 
 	s.Logger().WithField("container", containerID).Info("Container is started")
 
-	// Update sandbox resources in case a stopped container
-	// is started
-	if err = s.updateResources(ctx); err != nil {
-		return nil, err
-	}
 
+	if !s.config.DisableResourceHotplug {
+		// Update sandbox resources in case a stopped container
+		// is started
+		if err = s.updateResources(ctx); err != nil {
+			return nil, err
+		}
+	}
 	return c, nil
 }
 
@@ -1613,10 +1619,12 @@ func (s *Sandbox) createContainers(ctx context.Context) error {
 		}
 	}
 
-	// Update resources after having added containers to the sandbox, since
-	// container status is required to know if more resources should be added.
-	if err := s.updateResources(ctx); err != nil {
-		return err
+	if !s.config.DisableResourceHotplug {
+		// Update resources after having added containers to the sandbox, since
+		// container status is required to know if more resources should be added.
+		if err := s.updateResources(ctx); err != nil {
+			return err
+		}
 	}
 
 	if err := s.resourceControllerUpdate(ctx); err != nil {
