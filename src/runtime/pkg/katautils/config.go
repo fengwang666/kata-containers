@@ -156,6 +156,7 @@ type runtime struct {
 	StaticSandboxResourceMgmt bool     `toml:"static_sandbox_resource_mgmt"`
 	EnablePprof               bool     `toml:"enable_pprof"`
 	DisableGuestEmptyDir      bool     `toml:"disable_guest_empty_dir"`
+	DisableResourceHotplug    bool     `toml:"disable_resource_hotplug"`
 }
 
 type agent struct {

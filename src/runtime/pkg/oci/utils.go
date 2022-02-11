@@ -148,7 +148,8 @@ type RuntimeConfig struct {
 	EnablePprof bool
 
 	// Determines if Kata creates emptyDir on the guest
-	DisableGuestEmptyDir bool
+	DisableGuestEmptyDir   bool
+	DisableResourceHotplug bool
 }
 
 // AddKernelParam allows the addition of new kernel parameters to an existing
@@ -783,6 +784,12 @@ func addRuntimeConfigOverrides(ocispec specs.Spec, sbConfig *vc.SandboxConfig, r
 		return err
 	}
 
+	if err := newAnnotationConfiguration(ocispec, vcAnnotations.DisableResourceHotplug).setBool(func(disableResourceHotplug bool) {
+		sbConfig.DisableResourceHotplug = disableResourceHotplug
+	}); err != nil {
+		return err
+	}
+
 	if err := newAnnotationConfiguration(ocispec, vcAnnotations.SandboxCgroupOnly).setBool(func(sandboxCgroupOnly bool) {
 		sbConfig.SandboxCgroupOnly = sandboxCgroupOnly
 	}); err != nil {
@@ -906,6 +913,8 @@ func SandboxConfig(ocispec specs.Spec, runtime RuntimeConfig, bundlePath, cid, c
 		SandboxBindMounts: runtime.SandboxBindMounts,
 
 		DisableGuestSeccomp: runtime.DisableGuestSeccomp,
+
+		DisableResourceHotplug: runtime.DisableResourceHotplug,
 
 		// Q: Is this really necessary? @weizhang555
 		// Spec: &ocispec,
