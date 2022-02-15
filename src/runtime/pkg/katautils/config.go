@@ -138,6 +138,7 @@ type hypervisor struct {
 	Rootless                bool     `toml:"rootless"`
 	DisableSeccomp          bool     `toml:"disable_seccomp"`
 	DisableSeLinux          bool     `toml:"disable_selinux"`
+	VCPUPinned              bool     `toml:"vcpu_pinned"`
 }
 
 type runtime struct {
@@ -675,6 +676,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		KernelParams:            vc.DeserializeParams(strings.Fields(kernelParams)),
 		HypervisorMachineType:   machineType,
 		NumVCPUs:                h.defaultVCPUs(),
+		VCPUPinned:              h.VCPUPinned,
 		DefaultMaxVCPUs:         h.defaultMaxVCPUs(),
 		MemorySize:              h.defaultMemSz(),
 		MemSlots:                h.defaultMemSlots(),

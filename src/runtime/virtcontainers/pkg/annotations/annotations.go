@@ -229,6 +229,9 @@ const (
 
 	// EnableRootlessHypervisor is a sandbox annotation to enable rootless hypervisor (only supported in QEMU currently).
 	EnableRootlessHypervisor = kataAnnotHypervisorPrefix + "rootless"
+
+	// VCPUPinned specifies whether the KVM vCPU threads are pinned to CPU Cores.
+	VCPUPinned = kataAnnotHypervisorPrefix + "vcpu_pinned"
 )
 
 // Runtime related annotations
