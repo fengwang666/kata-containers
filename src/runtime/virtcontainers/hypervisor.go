@@ -501,6 +501,9 @@ type HypervisorConfig struct {
 
 	// Disable selinux from the hypervisor process
 	DisableSeLinux bool
+
+	// Whether the vCPU threads are pinned to CPU core.
+	VCPUPinned bool
 }
 
 // vcpu mapping from vcpu number to thread number

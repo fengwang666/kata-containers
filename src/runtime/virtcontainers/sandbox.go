@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"math"
 	"net"
@@ -1346,6 +1347,10 @@ func (s *Sandbox) CreateContainer(ctx context.Context, contConfig ContainerConfi
 		return nil, err
 	}
 
+	if err := s.pinVcpuThreads(ctx); err != nil {
+		return nil, err
+	}
+
 	if err = s.storeSandbox(ctx); err != nil {
 		return nil, err
 	}
@@ -1452,6 +1457,10 @@ func (s *Sandbox) DeleteContainer(ctx context.Context, containerID string) (VCCo
 		return nil, err
 	}
 
+	if err := s.pinVcpuThreads(ctx); err != nil {
+		return nil, err
+	}
+
 	if err = s.storeSandbox(ctx); err != nil {
 		return nil, err
 	}
@@ -1516,6 +1525,11 @@ func (s *Sandbox) UpdateContainer(ctx context.Context, containerID string, resou
 	if err := s.resourceControllerUpdate(ctx); err != nil {
 		return err
 	}
+
+	if err := s.pinVcpuThreads(ctx); err != nil {
+		return err
+	}
+
 
 	if err = s.storeSandbox(ctx); err != nil {
 		return err
@@ -1630,6 +1644,11 @@ func (s *Sandbox) createContainers(ctx context.Context) error {
 	if err := s.resourceControllerUpdate(ctx); err != nil {
 		return err
 	}
+
+	if err := s.pinVcpuThreads(ctx); err != nil {
+		return err
+	}
+
 	if err := s.storeSandbox(ctx); err != nil {
 		return err
 	}
@@ -2210,13 +2229,33 @@ func (s *Sandbox) constrainHypervisor(ctx context.Context) error {
 	return nil
 }
 
+// pinVcpuThreads pins the KVM vCPUs to specified cpu cores.
+func (s *Sandbox) pinVcpuThreads(ctx context.Context) error {
+	if s.config.HypervisorConfig.VCPUPinned {
+		tids, err := s.hypervisor.GetThreadIDs(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get thread ids from hypervisor: %v", err)
+		}
+
+		for i, pid := range tids.vcpus {
+			var cpuSet unix.CPUSet
+			//Pin the thread to the core sequentially.
+			cpuSet.Set(i)
+			if err := unix.SchedSetaffinity(pid, &cpuSet); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // setupResourceController adds the runtime process to either the sandbox resource controller or the
 // overhead one, depending on the sandbox_cgroup_only configuration setting.
 func (s *Sandbox) setupResourceController() error {
 	vmmController := s.sandboxController
 	if s.overheadController != nil {
-		vmmController = s.overheadController
-	}
+	vmmController = s.overheadController
+}
 
 	// By adding the runtime process to either the sandbox or overhead controller, we are making
 	// sure that any child process of the runtime (i.e. *all* processes serving a Kata pod)
@@ -2225,8 +2264,8 @@ func (s *Sandbox) setupResourceController() error {
 	runtimePid := os.Getpid()
 	// Add the runtime to the VMM sandbox resource controller
 	if err := vmmController.AddProcess(runtimePid); err != nil {
-		return fmt.Errorf("Could not add runtime PID %d to the sandbox %s resource controller: %v", runtimePid, s.sandboxController, err)
-	}
+	return fmt.Errorf("Could not add runtime PID %d to the sandbox %s resource controller: %v", runtimePid, s.sandboxController, err)
+}
 
 	return nil
 }
