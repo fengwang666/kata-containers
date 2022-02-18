@@ -17,17 +17,6 @@ kernel = "@KERNELPATH@"
 image = "@IMAGEPATH@"
 machine_type = "@MACHINETYPE@"
 
-
-# If disable_resource_hotplug is true, kata runtime will not hotplug the system resource (cpu and memory)
-# based on the container spec. The user is expected to compute the resource needed by the Pod beforehand
-# and set the correct values in the Kata configuration.
-#
-# Note: this should be deprecated in favor of static_sandbox_resource_mgmt once Kubernetes >= 1.23 and containerd >= 1.6
-#
-# Only used internally for Databricks.
-# Default false
-# disable_resource_hotplug = true
-
 # Enable confidential guest support.
 # Toggling that setting may trigger different hardware features, ranging
 # from memory encryption to both memory and CPU-state encryption and integrity.
@@ -522,6 +511,16 @@ disable_guest_seccomp=@DEFDISABLEGUESTSECCOMP@
 
 # disable applying SELinux on the VMM process (default false)
 disable_selinux=@DEFDISABLESELINUX@
+
+# If disable_resource_hotplug is true, kata runtime will not hotplug the system resource (cpu and memory)
+# based on the container spec. The user is expected to compute the resource needed by the Pod beforehand
+# and set the correct values in the Kata configuration.
+#
+# Note: this should be deprecated in favor of static_sandbox_resource_mgmt once Kubernetes >= 1.23 and containerd >= 1.6
+#
+# Only used internally for Databricks.
+# Default false
+# disable_resource_hotplug = true
 
 # If enabled, the runtime will create opentracing.io traces and spans.
 # (See https://www.jaegertracing.io/docs/getting-started).
