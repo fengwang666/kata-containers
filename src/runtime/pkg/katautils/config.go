@@ -1159,6 +1159,7 @@ func LoadConfiguration(configPath string, ignoreLogging bool) (resolvedConfigPat
 	config.DisableGuestSeccomp = tomlConf.Runtime.DisableGuestSeccomp
 
 	config.StaticSandboxResourceMgmt = tomlConf.Runtime.StaticSandboxResourceMgmt
+	config.DisableResourceHotplug = tomlConf.Runtime.DisableResourceHotplug
 	config.SandboxCgroupOnly = tomlConf.Runtime.SandboxCgroupOnly
 	config.DisableNewNetNs = tomlConf.Runtime.DisableNewNetNs
 	config.EnablePprof = tomlConf.Runtime.EnablePprof
