@@ -289,6 +289,9 @@ const (
 	AgentContainerPipeSize       = kataAnnotAgentPrefix + ContainerPipeSizeOption
 	ContainerPipeSizeOption      = "container_pipe_size"
 	ContainerPipeSizeKernelParam = "agent." + ContainerPipeSizeOption
+
+	// KataAgentGrpcTimeoutInSeconds is an annotation to specify the grpc timeout from kata shim to kata agent
+	KataAgentGrpcTimeoutInSeconds = kataAnnotAgentPrefix + "grpc_timeout"
 )
 
 // Container resource related annotations

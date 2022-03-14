@@ -145,7 +145,9 @@ const (
 
 // newKataAgent returns an agent from an agent type.
 func newKataAgent() agent {
-	return &kataAgent{}
+	return &kataAgent{
+		requestTimeout: time.Minute,
+	}
 }
 
 // The function is declared this way for mocking in unit tests
@@ -250,13 +252,14 @@ func ephemeralPath() string {
 // KataAgentConfig is a structure storing information needed
 // to reach the Kata Containers agent.
 type KataAgentConfig struct {
-	KernelModules      []string
-	ContainerPipeSize  uint32
-	DialTimeout        uint32
-	LongLiveConn       bool
-	Debug              bool
-	Trace              bool
-	EnableDebugConsole bool
+	KernelModules                 []string
+	ContainerPipeSize             uint32
+	DialTimeout                   uint32
+	KataAgentGrpcTimeoutInSeconds uint32
+	LongLiveConn                  bool
+	Debug                         bool
+	Trace                         bool
+	EnableDebugConsole            bool
 }
 
 // KataAgentState is the structure describing the data stored from this
@@ -280,7 +283,8 @@ type kataAgent struct {
 	reqHandlers map[string]reqFunc
 	kmodules    []string
 
-	dialTimout uint32
+	dialTimout     uint32
+	requestTimeout time.Duration
 
 	keepConn bool
 	dead     bool
@@ -345,6 +349,11 @@ func (k *kataAgent) init(ctx context.Context, sandbox *Sandbox, config KataAgent
 	k.keepConn = config.LongLiveConn
 	k.kmodules = config.KernelModules
 	k.dialTimout = config.DialTimeout
+
+	k.requestTimeout = defaultRequestTimeout
+	if config.KataAgentGrpcTimeoutInSeconds > 0 {
+		k.requestTimeout = time.Duration(config.KataAgentGrpcTimeoutInSeconds) * time.Second
+	}
 
 	return disableVMShutdown, nil
 }
@@ -1972,7 +1981,7 @@ func (k *kataAgent) getReqContext(ctx context.Context, reqName string) (newCtx c
 	case grpcCheckRequest:
 		newCtx, cancel = context.WithTimeout(ctx, checkRequestTimeout)
 	default:
-		newCtx, cancel = context.WithTimeout(ctx, defaultRequestTimeout)
+		newCtx, cancel = context.WithTimeout(ctx, k.requestTimeout)
 	}
 
 	return newCtx, cancel

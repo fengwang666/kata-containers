@@ -116,6 +116,7 @@ type SandboxResourceSizing struct {
 }
 
 // SandboxConfig is a Sandbox configuration.
+// nolint: govet
 type SandboxConfig struct {
 	// Volumes is a list of shared volumes between the host and the Sandbox.
 	Volumes []types.Volume
@@ -1377,7 +1378,6 @@ func (s *Sandbox) StartContainer(ctx context.Context, containerID string) (VCCon
 
 	s.Logger().WithField("container", containerID).Info("Container is started")
 
-
 	if !s.config.DisableResourceHotplug {
 		// Update sandbox resources in case a stopped container
 		// is started
@@ -1529,7 +1529,6 @@ func (s *Sandbox) UpdateContainer(ctx context.Context, containerID string, resou
 	if err := s.pinVcpuThreads(ctx); err != nil {
 		return err
 	}
-
 
 	if err = s.storeSandbox(ctx); err != nil {
 		return err
@@ -2254,8 +2253,8 @@ func (s *Sandbox) pinVcpuThreads(ctx context.Context) error {
 func (s *Sandbox) setupResourceController() error {
 	vmmController := s.sandboxController
 	if s.overheadController != nil {
-	vmmController = s.overheadController
-}
+		vmmController = s.overheadController
+	}
 
 	// By adding the runtime process to either the sandbox or overhead controller, we are making
 	// sure that any child process of the runtime (i.e. *all* processes serving a Kata pod)
@@ -2264,8 +2263,8 @@ func (s *Sandbox) setupResourceController() error {
 	runtimePid := os.Getpid()
 	// Add the runtime to the VMM sandbox resource controller
 	if err := vmmController.AddProcess(runtimePid); err != nil {
-	return fmt.Errorf("Could not add runtime PID %d to the sandbox %s resource controller: %v", runtimePid, s.sandboxController, err)
-}
+		return fmt.Errorf("Could not add runtime PID %d to the sandbox %s resource controller: %v", runtimePid, s.sandboxController, err)
+	}
 
 	return nil
 }
