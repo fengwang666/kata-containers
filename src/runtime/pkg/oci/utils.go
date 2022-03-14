@@ -861,6 +861,12 @@ func addAgentConfigOverrides(ocispec specs.Spec, config *vc.SandboxConfig) error
 		return err
 	}
 
+	if err := newAnnotationConfiguration(ocispec, vcAnnotations.KataAgentGrpcTimeoutInSeconds).setUint(func(timeout uint64) {
+		c.KataAgentGrpcTimeoutInSeconds = uint32(timeout)
+	}); err != nil {
+		return err
+	}
+
 	config.AgentConfig = c
 
 	return nil

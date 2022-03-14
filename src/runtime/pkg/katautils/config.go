@@ -53,6 +53,7 @@ const (
 	maxPCIBridges uint32 = 5
 )
 
+// nolint: govet
 type tomlConfig struct {
 	Hypervisor map[string]hypervisor
 	Agent      map[string]agent
@@ -161,11 +162,12 @@ type runtime struct {
 }
 
 type agent struct {
-	KernelModules       []string `toml:"kernel_modules"`
-	Debug               bool     `toml:"enable_debug"`
-	Tracing             bool     `toml:"enable_tracing"`
-	DebugConsoleEnabled bool     `toml:"debug_console_enabled"`
-	DialTimeout         uint32   `toml:"dial_timeout"`
+	KernelModules               []string `toml:"kernel_modules"`
+	Debug                       bool     `toml:"enable_debug"`
+	Tracing                     bool     `toml:"enable_tracing"`
+	DebugConsoleEnabled         bool     `toml:"debug_console_enabled"`
+	DialTimeout                 uint32   `toml:"dial_timeout"`
+	KataAgentRPCTimeoutInSecond uint32   `toml:"kata_agent_rpc_timeout"`
 }
 
 func (h hypervisor) path() (string, error) {
@@ -505,6 +507,10 @@ func (a agent) debugConsoleEnabled() bool {
 
 func (a agent) dialTimout() uint32 {
 	return a.DialTimeout
+}
+
+func (a agent) grpcTimeoutInSeconds() uint32 {
+	return a.KataAgentRPCTimeoutInSecond
 }
 
 func (a agent) debug() bool {
@@ -936,12 +942,13 @@ func updateRuntimeConfigHypervisor(configPath string, tomlConf tomlConfig, confi
 func updateRuntimeConfigAgent(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
 	for _, agent := range tomlConf.Agent {
 		config.AgentConfig = vc.KataAgentConfig{
-			LongLiveConn:       true,
-			Debug:              agent.debug(),
-			Trace:              agent.trace(),
-			KernelModules:      agent.kernelModules(),
-			EnableDebugConsole: agent.debugConsoleEnabled(),
-			DialTimeout:        agent.dialTimout(),
+			LongLiveConn:                  true,
+			Debug:                         agent.debug(),
+			Trace:                         agent.trace(),
+			KernelModules:                 agent.kernelModules(),
+			EnableDebugConsole:            agent.debugConsoleEnabled(),
+			DialTimeout:                   agent.dialTimout(),
+			KataAgentGrpcTimeoutInSeconds: agent.grpcTimeoutInSeconds(),
 		}
 	}
 

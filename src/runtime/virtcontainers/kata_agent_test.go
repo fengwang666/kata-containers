@@ -18,6 +18,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -129,6 +130,7 @@ func TestKataAgentSendReq(t *testing.T) {
 		state: KataAgentState{
 			URL: url,
 		},
+		requestTimeout: time.Minute,
 	}
 
 	ctx := context.Background()
@@ -890,6 +892,7 @@ func TestAgentCreateContainer(t *testing.T) {
 		state: KataAgentState{
 			URL: url,
 		},
+		requestTimeout: time.Minute,
 	}
 
 	dir, err := os.MkdirTemp("", "kata-agent-test")
@@ -921,6 +924,7 @@ func TestAgentNetworkOperation(t *testing.T) {
 		state: KataAgentState{
 			URL: url,
 		},
+		requestTimeout: time.Minute,
 	}
 
 	_, err = k.updateInterface(k.ctx, nil)
@@ -970,6 +974,7 @@ func TestKataCopyFile(t *testing.T) {
 		state: KataAgentState{
 			URL: url,
 		},
+		requestTimeout: time.Minute,
 	}
 
 	err = k.copyFile(context.Background(), "/abc/xyz/123", "/tmp")
