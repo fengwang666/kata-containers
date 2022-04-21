@@ -16,16 +16,23 @@ export branch="${target_branch:-main}"
 #
 clone_tests_repo()
 {
+  # We're relying on the upstream test repo
+  # Need to extract the upstream test branch name
+  test_branch=$branch
+  if [[ $branch =~ db-*|upstream-* ]]; then
+     test_branch=$(cut -d "-" -f2- <<< $branch)
+  fi
+
 	if [ -d "$tests_repo_dir" ]; then
 		[ -n "${CI:-}" ] && return
 		pushd "${tests_repo_dir}"
-		git checkout "${branch}"
+		git checkout "${test_branch}"
 		git pull
 		popd
 	else
 		git clone -q "https://${tests_repo}" "$tests_repo_dir"
 		pushd "${tests_repo_dir}"
-		git checkout "${branch}"
+		git checkout "${test_branch}"
 		popd
 	fi
 }
