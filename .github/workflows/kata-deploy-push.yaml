@@ -7,9 +7,6 @@ on:
       - edited
       - reopened
       - synchronize
-    paths:
-      - tools/**
-      - versions.yaml
 
 jobs:
   build-asset:
