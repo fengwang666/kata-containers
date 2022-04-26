@@ -206,6 +206,9 @@ type HypervisorConfig struct {
 
 	// EnableVhostUserStore is used to indicate if host supports vhost-user-blk/scsi
 	EnableVhostUserStore bool
+
+	// DisableResourceHotplug disables resource hotplug into the VM
+	DisableResourceHotplug bool
 }
 
 // KataAgentConfig is a structure storing information needed

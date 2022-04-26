@@ -1136,8 +1136,10 @@ func (c *Container) update(ctx context.Context, resources specs.LinuxResources) 
 		c.config.Resources.Memory.Limit = mem.Limit
 	}
 
-	if err := c.sandbox.updateResources(ctx); err != nil {
-		return err
+	if !c.sandbox.config.DisableResourceHotplug {
+		if err := c.sandbox.updateResources(ctx); err != nil {
+			return err
+		}
 	}
 
 	// There currently isn't a notion of cpusets.cpus or mems being tracked

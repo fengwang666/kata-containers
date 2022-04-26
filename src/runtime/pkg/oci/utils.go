@@ -148,7 +148,8 @@ type RuntimeConfig struct {
 	EnablePprof bool
 
 	// Determines if Kata creates emptyDir on the guest
-	DisableGuestEmptyDir bool
+	DisableGuestEmptyDir   bool
+	DisableResourceHotplug bool
 }
 
 // AddKernelParam allows the addition of new kernel parameters to an existing
@@ -635,6 +636,12 @@ func addHypervisorCPUOverrides(ocispec specs.Spec, sbConfig *vc.SandboxConfig) e
 		return err
 	}
 
+	if err := newAnnotationConfiguration(ocispec, vcAnnotations.VCPUPinned).setBool(func(vCPUPinned bool) {
+		sbConfig.HypervisorConfig.VCPUPinned = vCPUPinned
+	}); err != nil {
+		return err
+	}
+
 	return newAnnotationConfiguration(ocispec, vcAnnotations.DefaultMaxVCPUs).setUintWithCheck(func(maxVCPUs uint64) error {
 		max := uint32(maxVCPUs)
 
@@ -783,6 +790,12 @@ func addRuntimeConfigOverrides(ocispec specs.Spec, sbConfig *vc.SandboxConfig, r
 		return err
 	}
 
+	if err := newAnnotationConfiguration(ocispec, vcAnnotations.DisableResourceHotplug).setBool(func(disableResourceHotplug bool) {
+		sbConfig.DisableResourceHotplug = disableResourceHotplug
+	}); err != nil {
+		return err
+	}
+
 	if err := newAnnotationConfiguration(ocispec, vcAnnotations.SandboxCgroupOnly).setBool(func(sandboxCgroupOnly bool) {
 		sbConfig.SandboxCgroupOnly = sandboxCgroupOnly
 	}); err != nil {
@@ -848,6 +861,12 @@ func addAgentConfigOverrides(ocispec specs.Spec, config *vc.SandboxConfig) error
 		return err
 	}
 
+	if err := newAnnotationConfiguration(ocispec, vcAnnotations.KataAgentGrpcTimeoutInSeconds).setUint(func(timeout uint64) {
+		c.KataAgentGrpcTimeoutInSeconds = uint32(timeout)
+	}); err != nil {
+		return err
+	}
+
 	config.AgentConfig = c
 
 	return nil
@@ -906,6 +925,8 @@ func SandboxConfig(ocispec specs.Spec, runtime RuntimeConfig, bundlePath, cid, c
 		SandboxBindMounts: runtime.SandboxBindMounts,
 
 		DisableGuestSeccomp: runtime.DisableGuestSeccomp,
+
+		DisableResourceHotplug: runtime.DisableResourceHotplug,
 
 		// Q: Is this really necessary? @weizhang555
 		// Spec: &ocispec,

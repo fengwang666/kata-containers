@@ -229,6 +229,9 @@ const (
 
 	// EnableRootlessHypervisor is a sandbox annotation to enable rootless hypervisor (only supported in QEMU currently).
 	EnableRootlessHypervisor = kataAnnotHypervisorPrefix + "rootless"
+
+	// VCPUPinned specifies whether the KVM vCPU threads are pinned to CPU Cores.
+	VCPUPinned = kataAnnotHypervisorPrefix + "vcpu_pinned"
 )
 
 // Runtime related annotations
@@ -257,6 +260,9 @@ const (
 	// VfioMode is a sandbox annotation to specify how attached VFIO devices should be treated
 	// Overrides the runtime.vfio_mode parameter in the global configuration.toml
 	VfioMode = kataAnnotRuntimePrefix + "vfio_mode"
+
+	// DisableResourceHotplug disables the resource hotplug into the hypervisor.
+	DisableResourceHotplug = kataAnnotRuntimePrefix + "disable_resource_hotplug"
 )
 
 // Agent related annotations
@@ -283,6 +289,9 @@ const (
 	AgentContainerPipeSize       = kataAnnotAgentPrefix + ContainerPipeSizeOption
 	ContainerPipeSizeOption      = "container_pipe_size"
 	ContainerPipeSizeKernelParam = "agent." + ContainerPipeSizeOption
+
+	// KataAgentGrpcTimeoutInSeconds is an annotation to specify the grpc timeout from kata shim to kata agent
+	KataAgentGrpcTimeoutInSeconds = kataAnnotAgentPrefix + "grpc_timeout"
 )
 
 // Container resource related annotations

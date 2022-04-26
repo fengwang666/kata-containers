@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"math"
 	"net"
@@ -115,6 +116,7 @@ type SandboxResourceSizing struct {
 }
 
 // SandboxConfig is a Sandbox configuration.
+// nolint: govet
 type SandboxConfig struct {
 	// Volumes is a list of shared volumes between the host and the Sandbox.
 	Volumes []types.Volume
@@ -166,6 +168,8 @@ type SandboxConfig struct {
 	SandboxCgroupOnly bool
 
 	DisableGuestSeccomp bool
+
+	DisableResourceHotplug bool
 }
 
 // valid checks that the sandbox configuration is valid.
@@ -1331,14 +1335,20 @@ func (s *Sandbox) CreateContainer(ctx context.Context, contConfig ContainerConfi
 		}
 	}()
 
-	// Sandbox is responsible to update VM resources needed by Containers
-	// Update resources after having added containers to the sandbox, since
-	// container status is requiered to know if more resources should be added.
-	if err = s.updateResources(ctx); err != nil {
-		return nil, err
+	if !s.config.DisableResourceHotplug {
+		// Sandbox is responsible to update VM resources needed by Containers
+		// Update resources after having added containers to the sandbox, since
+		// container status is requiered to know if more resources should be added.
+		if err = s.updateResources(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	if err = s.resourceControllerUpdate(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := s.pinVcpuThreads(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1368,12 +1378,13 @@ func (s *Sandbox) StartContainer(ctx context.Context, containerID string) (VCCon
 
 	s.Logger().WithField("container", containerID).Info("Container is started")
 
-	// Update sandbox resources in case a stopped container
-	// is started
-	if err = s.updateResources(ctx); err != nil {
-		return nil, err
+	if !s.config.DisableResourceHotplug {
+		// Update sandbox resources in case a stopped container
+		// is started
+		if err = s.updateResources(ctx); err != nil {
+			return nil, err
+		}
 	}
-
 	return c, nil
 }
 
@@ -1446,6 +1457,10 @@ func (s *Sandbox) DeleteContainer(ctx context.Context, containerID string) (VCCo
 		return nil, err
 	}
 
+	if err := s.pinVcpuThreads(ctx); err != nil {
+		return nil, err
+	}
+
 	if err = s.storeSandbox(ctx); err != nil {
 		return nil, err
 	}
@@ -1508,6 +1523,10 @@ func (s *Sandbox) UpdateContainer(ctx context.Context, containerID string, resou
 	}
 
 	if err := s.resourceControllerUpdate(ctx); err != nil {
+		return err
+	}
+
+	if err := s.pinVcpuThreads(ctx); err != nil {
 		return err
 	}
 
@@ -1613,15 +1632,22 @@ func (s *Sandbox) createContainers(ctx context.Context) error {
 		}
 	}
 
-	// Update resources after having added containers to the sandbox, since
-	// container status is required to know if more resources should be added.
-	if err := s.updateResources(ctx); err != nil {
-		return err
+	if !s.config.DisableResourceHotplug {
+		// Update resources after having added containers to the sandbox, since
+		// container status is required to know if more resources should be added.
+		if err := s.updateResources(ctx); err != nil {
+			return err
+		}
 	}
 
 	if err := s.resourceControllerUpdate(ctx); err != nil {
 		return err
 	}
+
+	if err := s.pinVcpuThreads(ctx); err != nil {
+		return err
+	}
+
 	if err := s.storeSandbox(ctx); err != nil {
 		return err
 	}
@@ -2199,6 +2225,26 @@ func (s *Sandbox) constrainHypervisor(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+// pinVcpuThreads pins the KVM vCPUs to specified cpu cores.
+func (s *Sandbox) pinVcpuThreads(ctx context.Context) error {
+	if s.config.HypervisorConfig.VCPUPinned {
+		tids, err := s.hypervisor.GetThreadIDs(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get thread ids from hypervisor: %v", err)
+		}
+
+		for i, pid := range tids.vcpus {
+			var cpuSet unix.CPUSet
+			//Pin the thread to the core sequentially.
+			cpuSet.Set(i)
+			if err := unix.SchedSetaffinity(pid, &cpuSet); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

@@ -53,6 +53,7 @@ const (
 	maxPCIBridges uint32 = 5
 )
 
+// nolint: govet
 type tomlConfig struct {
 	Hypervisor map[string]hypervisor
 	Agent      map[string]agent
@@ -138,6 +139,7 @@ type hypervisor struct {
 	Rootless                bool     `toml:"rootless"`
 	DisableSeccomp          bool     `toml:"disable_seccomp"`
 	DisableSeLinux          bool     `toml:"disable_selinux"`
+	VCPUPinned              bool     `toml:"vcpu_pinned"`
 }
 
 type runtime struct {
@@ -156,14 +158,16 @@ type runtime struct {
 	StaticSandboxResourceMgmt bool     `toml:"static_sandbox_resource_mgmt"`
 	EnablePprof               bool     `toml:"enable_pprof"`
 	DisableGuestEmptyDir      bool     `toml:"disable_guest_empty_dir"`
+	DisableResourceHotplug    bool     `toml:"disable_resource_hotplug"`
 }
 
 type agent struct {
-	KernelModules       []string `toml:"kernel_modules"`
-	Debug               bool     `toml:"enable_debug"`
-	Tracing             bool     `toml:"enable_tracing"`
-	DebugConsoleEnabled bool     `toml:"debug_console_enabled"`
-	DialTimeout         uint32   `toml:"dial_timeout"`
+	KernelModules               []string `toml:"kernel_modules"`
+	Debug                       bool     `toml:"enable_debug"`
+	Tracing                     bool     `toml:"enable_tracing"`
+	DebugConsoleEnabled         bool     `toml:"debug_console_enabled"`
+	DialTimeout                 uint32   `toml:"dial_timeout"`
+	KataAgentRPCTimeoutInSecond uint32   `toml:"kata_agent_rpc_timeout"`
 }
 
 func (h hypervisor) path() (string, error) {
@@ -505,6 +509,10 @@ func (a agent) dialTimout() uint32 {
 	return a.DialTimeout
 }
 
+func (a agent) grpcTimeoutInSeconds() uint32 {
+	return a.KataAgentRPCTimeoutInSecond
+}
+
 func (a agent) debug() bool {
 	return a.Debug
 }
@@ -674,6 +682,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		KernelParams:            vc.DeserializeParams(strings.Fields(kernelParams)),
 		HypervisorMachineType:   machineType,
 		NumVCPUs:                h.defaultVCPUs(),
+		VCPUPinned:              h.VCPUPinned,
 		DefaultMaxVCPUs:         h.defaultMaxVCPUs(),
 		MemorySize:              h.defaultMemSz(),
 		MemSlots:                h.defaultMemSlots(),
@@ -933,12 +942,13 @@ func updateRuntimeConfigHypervisor(configPath string, tomlConf tomlConfig, confi
 func updateRuntimeConfigAgent(configPath string, tomlConf tomlConfig, config *oci.RuntimeConfig) error {
 	for _, agent := range tomlConf.Agent {
 		config.AgentConfig = vc.KataAgentConfig{
-			LongLiveConn:       true,
-			Debug:              agent.debug(),
-			Trace:              agent.trace(),
-			KernelModules:      agent.kernelModules(),
-			EnableDebugConsole: agent.debugConsoleEnabled(),
-			DialTimeout:        agent.dialTimout(),
+			LongLiveConn:                  true,
+			Debug:                         agent.debug(),
+			Trace:                         agent.trace(),
+			KernelModules:                 agent.kernelModules(),
+			EnableDebugConsole:            agent.debugConsoleEnabled(),
+			DialTimeout:                   agent.dialTimout(),
+			KataAgentGrpcTimeoutInSeconds: agent.grpcTimeoutInSeconds(),
 		}
 	}
 
@@ -1156,6 +1166,7 @@ func LoadConfiguration(configPath string, ignoreLogging bool) (resolvedConfigPat
 	config.DisableGuestSeccomp = tomlConf.Runtime.DisableGuestSeccomp
 
 	config.StaticSandboxResourceMgmt = tomlConf.Runtime.StaticSandboxResourceMgmt
+	config.DisableResourceHotplug = tomlConf.Runtime.DisableResourceHotplug
 	config.SandboxCgroupOnly = tomlConf.Runtime.SandboxCgroupOnly
 	config.DisableNewNetNs = tomlConf.Runtime.DisableNewNetNs
 	config.EnablePprof = tomlConf.Runtime.EnablePprof
