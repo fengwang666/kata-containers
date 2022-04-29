@@ -4,7 +4,6 @@
 **/*.rej
 **/target
 **/.vscode
-**/.idea
 pkg/logging/Cargo.lock
 src/agent/src/version.rs
 src/agent/kata-agent.service
