@@ -10,7 +10,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::iter;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
-use std::process::Command;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -446,24 +445,7 @@ async fn virtio_blk_storage_handler(
         let dev_path = get_virtio_blk_pci_device_name(&sandbox, &pcipath).await?;
         storage.source = dev_path;
     }
-    info!(logger, "storage info";
-        "fstype" => &storage.fstype,
-        "driver" => &storage.driver,
-        "source" => &storage.source,
-        "mount point" => &storage.mount_point,
-    );
-    if storage.fstype == "ext4" {
-        info!(logger, "fstype is ext4, formatting the input device");
-        // format the device with ext4 filesystem, in linux can be done by "mkfs.ext4 -F /dev/sdb1",
-        // Here, /dev/sdb1 be storage.source.
-        // Question: how to invoke mkfs.ext4 -F here?
-        Command::new("mkfs.ext4")
-            .arg("-F")
-            .arg(&storage.source)
-            .output()
-            .expect("mkfs.ext4 command failed to run");
-        info!(logger, "done formatting the input device");
-    }
+
     common_storage_handler(logger, &storage)
 }
 
