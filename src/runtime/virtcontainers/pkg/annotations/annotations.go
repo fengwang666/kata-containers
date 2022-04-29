@@ -303,6 +303,10 @@ const (
 
 	// ContainerResourcesSwapInBytes is a container annotation to specify the Resources.Memory.Swap
 	ContainerResourcesSwapInBytes = kataAnnotContainerResourcePrefix + "swap_in_bytes"
+
+	// CPU core pinning list
+	// If this annotation key exists, then kata shim should ping vcpu threads to all the cores in the list.
+	CpuCoreList = kataAnnotContainerPrefix + "cpu_core_list"
 )
 
 const (

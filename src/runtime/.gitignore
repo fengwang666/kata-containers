@@ -1,6 +1,8 @@
 *.o
 *.patch
 *.swp
+.idea/
+.idea
 coverage.txt
 coverage.html
 .git-commit

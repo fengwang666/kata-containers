@@ -11,15 +11,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"io"
 	"math"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -215,6 +218,10 @@ type Sandbox struct {
 	overheadController resCtrl.ResourceController
 
 	containers map[string]*Container
+
+	// VCPU thread id to cpu core index mapping.
+	cpuPinningLock    *sync.RWMutex
+	pinnedVcpuThreads map[int]int
 
 	id string
 
@@ -541,23 +548,25 @@ func newSandbox(ctx context.Context, sandboxConfig SandboxConfig, factory Factor
 	}
 
 	s := &Sandbox{
-		id:              sandboxConfig.ID,
-		factory:         factory,
-		hypervisor:      hypervisor,
-		agent:           agent,
-		config:          &sandboxConfig,
-		volumes:         sandboxConfig.Volumes,
-		containers:      map[string]*Container{},
-		state:           types.SandboxState{BlockIndexMap: make(map[int]struct{})},
-		annotationsLock: &sync.RWMutex{},
-		wg:              &sync.WaitGroup{},
-		shmSize:         sandboxConfig.ShmSize,
-		sharePidNs:      sandboxConfig.SharePidNs,
-		network:         network,
-		ctx:             ctx,
-		swapDeviceNum:   0,
-		swapSizeBytes:   0,
-		swapDevices:     []*config.BlockDrive{},
+		id:                sandboxConfig.ID,
+		factory:           factory,
+		hypervisor:        hypervisor,
+		agent:             agent,
+		config:            &sandboxConfig,
+		volumes:           sandboxConfig.Volumes,
+		containers:        map[string]*Container{},
+		state:             types.SandboxState{BlockIndexMap: make(map[int]struct{})},
+		annotationsLock:   &sync.RWMutex{},
+		cpuPinningLock:    &sync.RWMutex{},
+		pinnedVcpuThreads: map[int]int{},
+		wg:                &sync.WaitGroup{},
+		shmSize:           sandboxConfig.ShmSize,
+		sharePidNs:        sandboxConfig.SharePidNs,
+		network:           network,
+		ctx:               ctx,
+		swapDeviceNum:     0,
+		swapSizeBytes:     0,
+		swapDevices:       []*config.BlockDrive{},
 	}
 
 	fsShare, err := NewFilesystemShare(s)
@@ -1348,7 +1357,7 @@ func (s *Sandbox) CreateContainer(ctx context.Context, contConfig ContainerConfi
 		return nil, err
 	}
 
-	if err := s.pinVcpuThreads(ctx); err != nil {
+	if err := s.pinVcpuThreads(ctx, &contConfig, &osResourceHelperImpl{}); err != nil {
 		return nil, err
 	}
 
@@ -1457,7 +1466,7 @@ func (s *Sandbox) DeleteContainer(ctx context.Context, containerID string) (VCCo
 		return nil, err
 	}
 
-	if err := s.pinVcpuThreads(ctx); err != nil {
+	if err := s.pinVcpuThreads(ctx, c.config, &osResourceHelperImpl{}); err != nil {
 		return nil, err
 	}
 
@@ -1526,7 +1535,7 @@ func (s *Sandbox) UpdateContainer(ctx context.Context, containerID string, resou
 		return err
 	}
 
-	if err := s.pinVcpuThreads(ctx); err != nil {
+	if err := s.pinVcpuThreads(ctx, c.config, &osResourceHelperImpl{}); err != nil {
 		return err
 	}
 
@@ -1644,8 +1653,10 @@ func (s *Sandbox) createContainers(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.pinVcpuThreads(ctx); err != nil {
-		return err
+	for _, config := range s.config.Containers {
+		if err := s.pinVcpuThreads(ctx, &config, &osResourceHelperImpl{}); err != nil {
+			return err
+		}
 	}
 
 	if err := s.storeSandbox(ctx); err != nil {
@@ -2228,23 +2239,78 @@ func (s *Sandbox) constrainHypervisor(ctx context.Context) error {
 	return nil
 }
 
+func (s *Sandbox) extractCpuCores(cpuCoreList string) ([]int, error) {
+	cores := strings.Split(cpuCoreList, ",")
+	results := []int{}
+	for _, c := range cores {
+		coreIndex, err := strconv.Atoi(c)
+		if err != nil {
+			return []int{}, err
+		}
+		results = append(results, coreIndex)
+	}
+
+	return results, nil
+}
+
 // pinVcpuThreads pins the KVM vCPUs to specified cpu cores.
-func (s *Sandbox) pinVcpuThreads(ctx context.Context) error {
+func (s *Sandbox) pinVcpuThreads(ctx context.Context, containerConfig *ContainerConfig, helper osResourceHelper) error {
 	if s.config.HypervisorConfig.VCPUPinned {
-		tids, err := s.hypervisor.GetThreadIDs(ctx)
+		tids, err := helper.getThreadIds(ctx, s)
 		if err != nil {
 			return fmt.Errorf("failed to get thread ids from hypervisor: %v", err)
 		}
 
-		for i, pid := range tids.vcpus {
-			var cpuSet unix.CPUSet
-			//Pin the thread to the core sequentially.
-			cpuSet.Set(i)
-			if err := unix.SchedSetaffinity(pid, &cpuSet); err != nil {
+		s.cpuPinningLock.Lock()
+		defer s.cpuPinningLock.Unlock()
+		var coreList string
+		var annotationExists bool
+		if containerConfig.Annotations != nil {
+			coreList, annotationExists = containerConfig.Annotations[annotations.CpuCoreList]
+		}
+
+		if !annotationExists {
+			// no cpu core list. Will ping vcpu threads to cpu core, starting from 0.
+			i := 0
+			for _, pid := range tids.vcpus {
+				_, pinned := s.pinnedVcpuThreads[pid]
+				if !pinned {
+					if err := helper.pinPidToCpuCore(pid, i); err != nil {
+						return err
+					}
+					i = i + 1
+				}
+			}
+		} else {
+			coreIds, err := s.extractCpuCores(coreList)
+
+			if err != nil {
 				return err
+			}
+
+			pinnedThreads := 0
+			for _, coreIndex := range coreIds {
+				for _, pid := range tids.vcpus {
+					_, pinned := s.pinnedVcpuThreads[pid]
+					if !pinned {
+						if err := helper.pinPidToCpuCore(pid, coreIndex); err != nil {
+							return err
+						}
+
+						s.pinnedVcpuThreads[pid] = coreIndex
+						pinnedThreads = pinnedThreads + 1
+						break
+					}
+				}
+			}
+
+			if pinnedThreads != len(coreIds) {
+				// added extra validation here. Make sure all annotated cpu cores have been assigned vcpu threads.
+				return fmt.Errorf("not enough vcpu threads remained for cpu pinning. All threads:  %v, Pinned threads: %v, Annotated cores: %v", tids.vcpus, s.pinnedVcpuThreads, coreList)
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -2426,4 +2492,27 @@ func (s *Sandbox) fetchContainers(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// For dependency injection purpose. Using real implementation will make unit test fail or flaky.
+type osResourceHelper interface {
+	pinPidToCpuCore(pid, coreId int) error
+	getThreadIds(ctx context.Context, s *Sandbox) (VcpuThreadIDs, error)
+}
+
+type osResourceHelperImpl struct {
+}
+
+func (h *osResourceHelperImpl) pinPidToCpuCore(pid, coreId int) error {
+	var cpuSet unix.CPUSet
+	cpuSet.Set(coreId)
+	if err := unix.SchedSetaffinity(pid, &cpuSet); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *osResourceHelperImpl) getThreadIds(ctx context.Context, s *Sandbox) (VcpuThreadIDs, error) {
+	return s.hypervisor.GetThreadIDs(ctx)
 }
