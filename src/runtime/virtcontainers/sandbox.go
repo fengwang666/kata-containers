@@ -2300,13 +2300,13 @@ func (s *Sandbox) pinVcpuThreads(ctx context.Context, containerConfig *Container
 						s.pinnedVcpuThreads[pid] = coreIndex
 						pinnedThreads = pinnedThreads + 1
 						break
+					} else {
+						// ping it again, the secenario is after sandbox restarted, it shows we have pinned a task but actually the affinity may be removed already.
+						if err := helper.pinPidToCpuCore(pid, s.pinnedVcpuThreads[pid]); err != nil {
+							return err
+						}
 					}
 				}
-			}
-
-			if pinnedThreads != len(coreIds) {
-				// added extra validation here. Make sure all annotated cpu cores have been assigned vcpu threads.
-				return fmt.Errorf("not enough vcpu threads remained for cpu pinning. All threads:  %v, Pinned threads: %v, Annotated cores: %v", tids.vcpus, s.pinnedVcpuThreads, coreList)
 			}
 		}
 	}

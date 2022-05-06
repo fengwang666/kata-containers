@@ -226,7 +226,6 @@ func TestPinCpuCoresNegtivePath(t *testing.T) {
 		{"pin thread return error", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "10"}}}, map[int]int{1: 1}, nil, fmt.Errorf("pinIdError")},
 		{"invalid annotation value", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "asdf"}}}, map[int]int{1: 1}, nil, nil},
 		{"invalid integer value", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "1,a"}}}, map[int]int{1: 1}, nil, nil},
-		{"not enough threads to pin", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "1,2"}}}, map[int]int{1: 1}, nil, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
