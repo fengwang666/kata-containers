@@ -5,7 +5,7 @@
 Welcome to Kata Containers!
 
 This repository is the home of the Kata Containers code for the 2.0 and newer
-releases.
+releases for databricks internal fork.
 
 If you want to learn about Kata Containers, visit the main
 [Kata Containers website](https://katacontainers.io).
