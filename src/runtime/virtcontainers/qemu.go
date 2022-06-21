@@ -628,29 +628,32 @@ func (q *qemu) CreateVM(ctx context.Context, id string, network Network, hypervi
 		return err
 	}
 
+	q.checkBpfEnabled()
+
 	qemuConfig := govmmQemu.Config{
-		Name:        fmt.Sprintf("sandbox-%s", q.id),
-		UUID:        q.state.UUID,
-		Path:        qemuPath,
-		Ctx:         q.qmpMonitorCh.ctx,
-		Uid:         q.config.Uid,
-		Gid:         q.config.Gid,
-		Groups:      q.config.Groups,
-		Machine:     machine,
-		SMP:         smp,
-		Memory:      memory,
-		Devices:     devices,
-		CPUModel:    cpuModel,
-		Kernel:      kernel,
-		RTC:         rtc,
-		QMPSockets:  qmpSockets,
-		Knobs:       knobs,
-		Incoming:    incoming,
-		VGA:         "none",
-		GlobalParam: "kvm-pit.lost_tick_policy=discard",
-		Bios:        firmwarePath,
-		PFlash:      pflash,
-		PidFile:     filepath.Join(q.config.VMStorePath, q.id, "pid"),
+		Name:           fmt.Sprintf("sandbox-%s", q.id),
+		UUID:           q.state.UUID,
+		Path:           qemuPath,
+		Ctx:            q.qmpMonitorCh.ctx,
+		Uid:            q.config.Uid,
+		Gid:            q.config.Gid,
+		Groups:         q.config.Groups,
+		Machine:        machine,
+		SMP:            smp,
+		Memory:         memory,
+		Devices:        devices,
+		CPUModel:       cpuModel,
+		SeccompSandbox: q.config.SeccompSandbox,
+		Kernel:         kernel,
+		RTC:            rtc,
+		QMPSockets:     qmpSockets,
+		Knobs:          knobs,
+		Incoming:       incoming,
+		VGA:            "none",
+		GlobalParam:    "kvm-pit.lost_tick_policy=discard",
+		Bios:           firmwarePath,
+		PFlash:         pflash,
+		PidFile:        filepath.Join(q.config.VMStorePath, q.id, "pid"),
 	}
 
 	qemuConfig.Devices, qemuConfig.Bios, err = q.arch.appendProtectionDevice(qemuConfig.Devices, firmwarePath, firmwareVolumePath)
@@ -685,6 +688,25 @@ func (q *qemu) CreateVM(ctx context.Context, id string, network Network, hypervi
 
 	q.virtiofsDaemon, err = q.createVirtiofsDaemon(hypervisorConfig.SharedPath)
 	return err
+}
+
+func (q *qemu) checkBpfEnabled() {
+	if q.config.SeccompSandbox != "" {
+		out, err := os.ReadFile("/proc/sys/net/core/bpf_jit_enable")
+		if err != nil {
+			q.Logger().WithError(err).Warningf("failed to get bpf_jit_enable status")
+			return
+		}
+		enabled, err := strconv.Atoi(string(out))
+		if err != nil {
+			q.Logger().WithError(err).Warningf("failed to convert bpf_jit_enable status to integer")
+			return
+		}
+		if enabled == 0 {
+			q.Logger().Warningf("bpf_jit_enable is disabled. " +
+				"It's recommended to turn on bpf_jit_enable to reduce the performance impact of QEMU seccomp sandbox.")
+		}
+	}
 }
 
 func (q *qemu) vhostFSSocketPath(id string) (string, error) {
