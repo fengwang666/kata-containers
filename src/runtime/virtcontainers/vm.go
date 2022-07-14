@@ -12,11 +12,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/uuid"
 	pb "github.com/kata-containers/kata-containers/src/runtime/protocols/cache"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/persist"
 	persistapi "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/persist/api"
-	"github.com/sirupsen/logrus"
 )
 
 var urandomDev = "/dev/urandom"
@@ -36,6 +37,7 @@ type VM struct {
 }
 
 // VMConfig is a collection of all info that a new blackbox VM needs.
+// nolint: govet
 type VMConfig struct {
 	HypervisorType   HypervisorType
 	AgentConfig      KataAgentConfig

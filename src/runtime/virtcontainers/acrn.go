@@ -93,6 +93,7 @@ type AcrnState struct {
 }
 
 // Acrn is an Hypervisor interface implementation for the Linux acrn hypervisor.
+// nolint: govet
 type Acrn struct {
 	sandbox    *Sandbox
 	ctx        context.Context

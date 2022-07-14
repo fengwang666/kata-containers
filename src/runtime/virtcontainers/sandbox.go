@@ -87,6 +87,7 @@ var (
 )
 
 // SandboxStatus describes a sandbox status.
+// nolint: govet
 type SandboxStatus struct {
 	ContainersStatus []ContainerStatus
 
@@ -2255,60 +2256,83 @@ func (s *Sandbox) extractCpuCores(cpuCoreList string) ([]int, error) {
 
 // pinVcpuThreads pins the KVM vCPUs to specified cpu cores.
 func (s *Sandbox) pinVcpuThreads(ctx context.Context, containerConfig *ContainerConfig, helper osResourceHelper) error {
-	if s.config.HypervisorConfig.VCPUPinned {
-		tids, err := helper.getThreadIds(ctx, s)
-		if err != nil {
-			return fmt.Errorf("failed to get thread ids from hypervisor: %v", err)
-		}
+	if !s.config.HypervisorConfig.VCPUPinned {
+		return nil
+	}
 
-		s.cpuPinningLock.Lock()
-		defer s.cpuPinningLock.Unlock()
-		var coreList string
-		var annotationExists bool
-		if containerConfig.Annotations != nil {
-			coreList, annotationExists = containerConfig.Annotations[annotations.CpuCoreList]
-		}
+	tids, err := helper.getThreadIds(ctx, s)
+	if err != nil {
+		return fmt.Errorf("failed to get thread ids from hypervisor: %v", err)
+	}
 
-		if !annotationExists {
-			// no cpu core list. Will ping vcpu threads to cpu core, starting from 0.
-			i := 0
-			for _, pid := range tids.vcpus {
-				_, pinned := s.pinnedVcpuThreads[pid]
-				if !pinned {
-					if err := helper.pinPidToCpuCore(pid, i); err != nil {
-						return err
-					}
-					i = i + 1
+	s.cpuPinningLock.Lock()
+	defer s.cpuPinningLock.Unlock()
+	var coreList string
+	var annotationExists bool
+	if containerConfig.Annotations != nil {
+		coreList, annotationExists = containerConfig.Annotations[annotations.CpuCoreList]
+	}
+
+	if !annotationExists {
+		return s.pinVcpuThreadsEmptyAnnotation(tids, helper)
+	}
+
+	// core_list annotation exists, pin the threads to the allocated vcpus
+	coreIds, err := s.extractCpuCores(coreList)
+	if err != nil {
+		return err
+	}
+
+	pinnedThreads := 0
+	for _, coreIndex := range coreIds {
+		for _, pid := range tids.vcpus {
+			_, pinned := s.pinnedVcpuThreads[pid]
+			if !pinned {
+				if err := helper.pinPidToCpuCore(pid, coreIndex); err != nil {
+					return err
+				}
+
+				s.pinnedVcpuThreads[pid] = coreIndex
+				pinnedThreads = pinnedThreads + 1
+				break
+			} else {
+				// Pin this thread again since affinity will be removed in case the sandbox was restarted.
+				if err := helper.pinPidToCpuCore(pid, s.pinnedVcpuThreads[pid]); err != nil {
+					return err
 				}
 			}
-		} else {
-			coreIds, err := s.extractCpuCores(coreList)
+		}
+	}
 
-			if err != nil {
+	return nil
+}
+
+// No cpu core list provided from annotation, will pin threads to available vcpus
+func (s *Sandbox) pinVcpuThreadsEmptyAnnotation(tids VcpuThreadIDs, helper osResourceHelper) error {
+	availableVCPUs := s.config.HypervisorConfig.AvailableHostVCPUList
+	i := 0
+	for _, pid := range tids.vcpus {
+		_, pinned := s.pinnedVcpuThreads[pid]
+		if pinned {
+			// Pin this thread again since affinity will be removed in case the sandbox was restarted.
+			if err := helper.pinPidToCpuCore(pid, s.pinnedVcpuThreads[pid]); err != nil {
 				return err
 			}
-
-			pinnedThreads := 0
-			for _, coreIndex := range coreIds {
-				for _, pid := range tids.vcpus {
-					_, pinned := s.pinnedVcpuThreads[pid]
-					if !pinned {
-						if err := helper.pinPidToCpuCore(pid, coreIndex); err != nil {
-							return err
-						}
-
-						s.pinnedVcpuThreads[pid] = coreIndex
-						pinnedThreads = pinnedThreads + 1
-						break
-					} else {
-						// ping it again, the secenario is after sandbox restarted, it shows we have pinned a task but actually the affinity may be removed already.
-						if err := helper.pinPidToCpuCore(pid, s.pinnedVcpuThreads[pid]); err != nil {
-							return err
-						}
-					}
-				}
-			}
+			continue
 		}
+
+		vcpuID := i
+		// Note: if availableVCPUs is empty, we consider it as all vCPUs are available for config compatibility reason.
+		// If the list is empty, it falls back to the existing incrementing index logic.
+		if len(availableVCPUs) > 0 {
+			index := i % len(availableVCPUs)
+			vcpuID = int(availableVCPUs[index])
+		}
+
+		if err := helper.pinPidToCpuCore(pid, vcpuID); err != nil {
+			return err
+		}
+		i = i + 1
 	}
 
 	return nil

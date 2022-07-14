@@ -239,6 +239,7 @@ type Param struct {
 }
 
 // HypervisorConfig is the hypervisor configuration.
+// nolint: govet
 type HypervisorConfig struct {
 	// customAssets is a map of assets.
 	// Each value in that map takes precedence over the configured assets.
@@ -507,6 +508,10 @@ type HypervisorConfig struct {
 
 	// Whether the vCPU threads are pinned to CPU core.
 	VCPUPinned bool
+
+	// AvailableHostVCPUList host vCPU IDs that are not isolated and CPU affinity can be set
+	// See https://databricks.atlassian.net/browse/PLAT-58335
+	AvailableHostVCPUList []uint32
 }
 
 // vcpu mapping from vcpu number to thread number
