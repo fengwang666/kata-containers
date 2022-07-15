@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/sirupsen/logrus"
+
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/govmm"
 	govmmQemu "github.com/kata-containers/kata-containers/src/runtime/pkg/govmm/qemu"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/katautils/katatrace"
@@ -24,7 +26,6 @@ import (
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/device/config"
 	exp "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/experimental"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/utils"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -107,6 +108,7 @@ type hypervisor struct {
 	FileBackedMemRootList   []string `toml:"valid_file_mem_backends"`
 	EntropySourceList       []string `toml:"valid_entropy_sources"`
 	EnableAnnotations       []string `toml:"enable_annotations"`
+	AvailableHostVCPUList   []uint32 `toml:"available_host_vcpus"`
 	RxRateLimiterMaxRate    uint64   `toml:"rx_rate_limiter_max_rate"`
 	TxRateLimiterMaxRate    uint64   `toml:"tx_rate_limiter_max_rate"`
 	MemOffset               uint64   `toml:"memory_offset"`
@@ -684,6 +686,7 @@ func newQemuHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		HypervisorMachineType:   machineType,
 		NumVCPUs:                h.defaultVCPUs(),
 		VCPUPinned:              h.VCPUPinned,
+		AvailableHostVCPUList:   h.AvailableHostVCPUList,
 		DefaultMaxVCPUs:         h.defaultMaxVCPUs(),
 		MemorySize:              h.defaultMemSz(),
 		MemSlots:                h.defaultMemSlots(),

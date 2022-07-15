@@ -23,12 +23,13 @@ import (
 	exp "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/experimental"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/persist/fs"
 
-	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/annotations"
-	vcAnnotations "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/annotations"
-	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/types"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
+
+	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/annotations"
+	vcAnnotations "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/annotations"
+	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/types"
 )
 
 // dirMode is the permission bits used for creating a directory
@@ -149,43 +150,67 @@ func TestCalculateSandboxCPUs(t *testing.T) {
 func TestPinCpuCoresHappyPath(t *testing.T) {
 	// nolint: govet
 	tests := []struct {
-		name          string
-		containers    []ContainerConfig
-		threads       map[int]int
-		expectedCores map[int]bool
+		name               string
+		containers         []ContainerConfig
+		threads            map[int]int
+		expectedCores      map[int]bool
+		availableHostVCPUs []uint32
 	}{
-		{"default pin cpu with empty config", []ContainerConfig{}, map[int]int{}, map[int]bool{}},
+		{"default pin cpu with empty config", []ContainerConfig{}, map[int]int{}, map[int]bool{}, []uint32{}},
 		{"default pin cpu with multiple threads", []ContainerConfig{{}}, map[int]int{
 			1: 1,
 			2: 2,
-		}, map[int]bool{0: true, 1: true}},
+		}, map[int]bool{0: true, 1: true}, []uint32{}},
+		{"default pin cpu with multiple threads and available host vCPUs", []ContainerConfig{{}}, map[int]int{
+			1: 1,
+			2: 2,
+			3: 3,
+			4: 4,
+		}, map[int]bool{0: true, 4: true}, []uint32{0, 4}},
 		{"annotation pin with one container", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "10,11"}}}, map[int]int{
 			3: 5,
 			8: 9,
-		}, map[int]bool{10: true, 11: true}},
+		}, map[int]bool{10: true, 11: true}, []uint32{}},
 		{"annotation pin with two containers", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "10,11"}}, {Annotations: map[string]string{annotations.CpuCoreList: "20,21"}}}, map[int]int{
 			3:  5,
 			8:  9,
 			9:  10,
 			11: 13,
-		}, map[int]bool{10: true, 11: true, 20: true, 21: true}},
+		}, map[int]bool{10: true, 11: true, 20: true, 21: true}, []uint32{}},
 		{"annotation pin with mixed container type", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "10,11"}}, {}}, map[int]int{
 			3:  5,
 			8:  9,
 			9:  10,
 			11: 13,
-		}, map[int]bool{0: true, 1: true, 10: true, 11: true}}, //mixed type, will pin annotation cores first, then ping remains threads to cpu cores, starting from cpu 0.
+		}, map[int]bool{0: true, 1: true, 10: true, 11: true}, []uint32{}}, // mixed type, will pin annotation cores first, then ping remains threads to cpu cores, starting from cpu 0.
+		{"annotation pin with mixed container type and available vCPUs", []ContainerConfig{{Annotations: map[string]string{annotations.CpuCoreList: "10,11"}}, {}}, map[int]int{
+			3:  5,
+			8:  9,
+			9:  10,
+			11: 13,
+		}, map[int]bool{2: true, 4: true, 10: true, 11: true}, []uint32{2, 4}}, // mixed type, will pin annotation cores first, then ping remains threads to available cpu cores.
 		{"annotation pin with all empty container", []ContainerConfig{{}, {}}, map[int]int{
 			3:  5,
 			8:  9,
 			9:  10,
 			11: 12,
-		}, map[int]bool{0: true, 1: true, 2: true, 3: true}}, //mixed type, will pin annotation cores first, then ping remains threads to cpu cores, starting from cpu 0.
+		}, map[int]bool{0: true, 1: true, 2: true, 3: true}, []uint32{}}, // multiple containers with empty annotations, will pin threads to available vCPUs.
+		{"annotation pin with all empty container", []ContainerConfig{{}, {}}, map[int]int{
+			3:  5,
+			8:  9,
+			9:  10,
+			11: 12,
+		}, map[int]bool{0: true, 2: true, 7: true}, []uint32{0, 2, 7}}, // mixed type, will pin annotation cores first, then ping remains threads to available vCPUs
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sandbox := &Sandbox{pinnedVcpuThreads: map[int]int{}, cpuPinningLock: &sync.RWMutex{}}
-			sandbox.config = &SandboxConfig{HypervisorConfig: HypervisorConfig{VCPUPinned: true}}
+			sandbox.config = &SandboxConfig{
+				HypervisorConfig: HypervisorConfig{
+					VCPUPinned:            true,
+					AvailableHostVCPUList: tt.availableHostVCPUs,
+				},
+			}
 			mockOsResourceHelper := newMockOsResourceHelper(tt.threads, nil, nil)
 			expectedThreads := map[int]bool{}
 
@@ -195,25 +220,44 @@ func TestPinCpuCoresHappyPath(t *testing.T) {
 
 			// run actual function
 			for _, config := range tt.containers {
-				sandbox.pinVcpuThreads(context.TODO(), &config, mockOsResourceHelper)
+				err := sandbox.pinVcpuThreads(context.TODO(), &config, mockOsResourceHelper)
+				assert.Nil(t, err)
 			}
 
-			assert.Equal(t, len(mockOsResourceHelper.results), len(tt.expectedCores))
-			for pid, core := range mockOsResourceHelper.results {
-				assert.Contains(t, tt.expectedCores, core)
-				assert.Contains(t, expectedThreads, pid)
+			if len(tt.availableHostVCPUs) == len(expectedThreads) {
+				// When number of threads equals number of available host vcpus, each pid should have dedicated vcpu
+				assert.Equal(t, len(mockOsResourceHelper.results), len(tt.expectedCores))
+				for pid, core := range mockOsResourceHelper.results {
+					assert.Contains(t, tt.expectedCores, core)
+					assert.Contains(t, expectedThreads, pid)
+					delete(tt.expectedCores, core)
+					delete(expectedThreads, pid)
+				}
 
-				delete(tt.expectedCores, core)
-				delete(expectedThreads, pid)
+				assert.Equal(t, len(tt.expectedCores), 0)
+				assert.Equal(t, len(expectedThreads), 0)
+			} else {
+				// When number of threads > number of available host vcpus,
+				// multiple pids could share the same vcpu but they must be in the expectedCores
+				actualCores := make(map[int]bool)
+				for _, vcpuID := range mockOsResourceHelper.results {
+					actualCores[vcpuID] = true
+				}
+				assert.Equal(t, len(actualCores), len(tt.expectedCores))
+				assert.Equal(t, tt.expectedCores, actualCores)
+
+				for pid, core := range mockOsResourceHelper.results {
+					assert.Contains(t, tt.expectedCores, core)
+					assert.Contains(t, expectedThreads, pid)
+					delete(expectedThreads, pid)
+				}
+				assert.Equal(t, len(expectedThreads), 0)
 			}
-
-			assert.Equal(t, len(tt.expectedCores), 0)
-			assert.Equal(t, len(expectedThreads), 0)
 		})
 	}
 }
 
-func TestPinCpuCoresNegtivePath(t *testing.T) {
+func TestPinCpuCoresNegativePath(t *testing.T) {
 	// nolint: govet
 	tests := []struct {
 		name       string
@@ -237,6 +281,49 @@ func TestPinCpuCoresNegtivePath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPinVCPUThreadsEmptyAnnotation(t *testing.T) {
+	threads := map[int]int{
+		3: 5,
+		1: 0,
+	}
+	sandbox := &Sandbox{pinnedVcpuThreads: map[int]int{}, cpuPinningLock: &sync.RWMutex{}}
+	sandbox.config = &SandboxConfig{
+		HypervisorConfig: HypervisorConfig{
+			VCPUPinned:            true,
+			AvailableHostVCPUList: []uint32{2, 4},
+		},
+	}
+
+	// First pin should succeed
+	mockOsResourceHelper := newMockOsResourceHelper(threads, nil, nil)
+	err := sandbox.pinVcpuThreadsEmptyAnnotation(VcpuThreadIDs{vcpus: threads}, mockOsResourceHelper)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, mockOsResourceHelper.pinPidToCpuCoreCalledCount)
+
+	// Pin again should also succeed, when pid is already pined, the pinPidToCpuCore should still be called 2 more times
+	err = sandbox.pinVcpuThreadsEmptyAnnotation(VcpuThreadIDs{vcpus: threads}, mockOsResourceHelper)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, mockOsResourceHelper.pinPidToCpuCoreCalledCount)
+
+	mockErr := fmt.Errorf("mock err")
+	mockOsResourceHelper.pinPidToCoreError = mockErr
+
+	// Pin again when pinPidToCpuCore returns error
+	err = sandbox.pinVcpuThreadsEmptyAnnotation(VcpuThreadIDs{vcpus: threads}, mockOsResourceHelper)
+	assert.Equal(t, mockErr, err)
+	assert.Equal(t, 5, mockOsResourceHelper.pinPidToCpuCoreCalledCount)
+
+	threads2 := map[int]int{
+		2: 0,
+		4: 3,
+	}
+
+	// Pin for a new threads but pinPidToCpuCore returned error
+	err = sandbox.pinVcpuThreadsEmptyAnnotation(VcpuThreadIDs{vcpus: threads2}, mockOsResourceHelper)
+	assert.Equal(t, mockErr, err)
+	assert.Equal(t, 6, mockOsResourceHelper.pinPidToCpuCoreCalledCount)
 }
 
 func TestCalculateSandboxMem(t *testing.T) {
@@ -1772,10 +1859,12 @@ func TestSandboxHugepageLimit(t *testing.T) {
 }
 
 type mockOsResourceHelper struct {
-	threadIds         map[int]int
-	results           map[int]int
-	getIdError        error
-	pinPidToCoreError error
+	threadIds                  map[int]int
+	results                    map[int]int
+	getIdError                 error
+	pinPidToCoreError          error
+	getThreadIdsCalledCount    int
+	pinPidToCpuCoreCalledCount int
 }
 
 func newMockOsResourceHelper(threadIds map[int]int, getIdError, pinPidToCoreError error) *mockOsResourceHelper {
@@ -1783,6 +1872,7 @@ func newMockOsResourceHelper(threadIds map[int]int, getIdError, pinPidToCoreErro
 }
 
 func (h *mockOsResourceHelper) getThreadIds(ctx context.Context, s *Sandbox) (VcpuThreadIDs, error) {
+	h.getThreadIdsCalledCount++
 	if h.getIdError != nil {
 		return VcpuThreadIDs{}, h.getIdError
 	}
@@ -1790,6 +1880,7 @@ func (h *mockOsResourceHelper) getThreadIds(ctx context.Context, s *Sandbox) (Vc
 }
 
 func (h *mockOsResourceHelper) pinPidToCpuCore(pid, coreId int) error {
+	h.pinPidToCpuCoreCalledCount++
 	if h.pinPidToCoreError != nil {
 		return h.pinPidToCoreError
 	}

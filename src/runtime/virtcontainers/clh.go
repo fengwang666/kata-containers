@@ -23,10 +23,11 @@ import (
 	"time"
 
 	"github.com/containerd/console"
-	chclient "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/cloud-hypervisor/client"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+
+	chclient "github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/cloud-hypervisor/client"
 
 	hv "github.com/kata-containers/kata-containers/src/runtime/pkg/hypervisors"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/katautils/katatrace"
@@ -159,6 +160,7 @@ func (s *CloudHypervisorState) reset() {
 	s.state = clhNotReady
 }
 
+// nolint: govet
 type cloudHypervisor struct {
 	console        console.Console
 	virtiofsDaemon VirtiofsDaemon
