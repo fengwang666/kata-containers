@@ -19,7 +19,6 @@ jobs:
           - shim-v2
           - qemu
           - cloud-hypervisor
-          - firecracker
           - rootfs-image
           - rootfs-initrd
     steps:

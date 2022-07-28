@@ -22,7 +22,6 @@ all-parallel: $(MK_DIR)/dockerbuild/install_yq.sh
 	${MAKE} -f $(MK_PATH) all -j$$(( $$(nproc) - 1  )) V=
 
 all: cloud-hypervisor-tarball \
-	firecracker-tarball \
 	kernel-tarball \
 	qemu-tarball \
 	rootfs-image-tarball \

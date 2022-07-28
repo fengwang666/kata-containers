@@ -41,7 +41,6 @@ jobs:
       matrix:
         asset:
           - cloud-hypervisor
-          - firecracker
           - kernel
           - qemu
           - rootfs-image
