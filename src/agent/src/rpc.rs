@@ -389,15 +389,15 @@ impl AgentService {
         let cid = req.container_id.clone();
         let eid = req.exec_id.clone();
         let s = self.sandbox.clone();
+        let mut sig: libc::c_int = req.signal as libc::c_int;
 
         info!(
             sl!(),
             "signal process";
             "container-id" => cid.clone(),
             "exec-id" => eid.clone(),
+            "signal" => sig,
         );
-
-        let mut sig: libc::c_int = req.signal as libc::c_int;
         {
             let mut sandbox = s.lock().await;
             let p = sandbox.find_container_process(cid.as_str(), eid.as_str())?;
@@ -406,6 +406,12 @@ impl AgentService {
             // instead of "SIGTERM" to terminate it.
             if p.init && sig == libc::SIGTERM && !is_signal_handled(p.pid, sig as u32) {
                 sig = libc::SIGKILL;
+                info!(
+                    sl!(),
+                    "translate signal to SIGKILL";
+                    "container-id" => cid.clone(),
+                    "exec-id" => eid.clone(),
+                );
             }
             p.signal(sig)?;
         }
@@ -417,6 +423,7 @@ impl AgentService {
                 "signal all the remaining processes";
                 "container-id" => cid.clone(),
                 "exec-id" => eid.clone(),
+                "signal" => sig,
             );
 
             if let Err(err) = self.freeze_cgroup(&cid, FreezerState::Frozen).await {
@@ -1654,7 +1661,7 @@ fn is_signal_handled(pid: pid_t, signum: u32) -> bool {
                 warn!(sl!(), "parse the SigCgt field failed\n");
                 return false;
             }
-            let sig_cgt_str = mask_vec[1];
+            let sig_cgt_str = mask_vec[1].trim();
             let sig_cgt_mask = match u64::from_str_radix(sig_cgt_str, 16) {
                 Ok(h) => h,
                 Err(_) => {
