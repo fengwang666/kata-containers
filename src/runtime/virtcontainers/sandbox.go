@@ -2159,6 +2159,12 @@ func (s *Sandbox) GetHypervisorType() string {
 // constraints by moving the potentially new vCPU threads back to the sandbox
 // controller.
 func (s *Sandbox) resourceControllerUpdate(ctx context.Context) error {
+	// this is for avoiding the cpu assignment conflicts between
+	// linux cgroup and aegis resource manager.
+	if s.config.DisableResourceHotplug {
+		return nil
+	}
+
 	cpuset, memset, err := s.getSandboxCPUSet()
 	if err != nil {
 		return err

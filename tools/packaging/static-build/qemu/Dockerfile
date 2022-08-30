@@ -35,6 +35,7 @@ RUN apt-get update && apt-get upgrade -y && \
 	    libglib2.0-dev git \
 	    libltdl-dev \
 	    libmount-dev \
+	    libnuma-dev \
 	    libpixman-1-dev \
 	    libselinux1-dev \
 	    libtool \
@@ -47,7 +48,8 @@ RUN apt-get update && apt-get upgrade -y && \
 	    python \
 	    python-dev \
 	    rsync \
-	    zlib1g-dev && \
+	    zlib1g-dev \
+	    numactl && \
     if [ "$(uname -m)" != "s390x" ]; then apt-get install -y --no-install-recommends libpmem-dev; fi && \
     apt-get clean && rm -rf /var/lib/apt/lists/
 

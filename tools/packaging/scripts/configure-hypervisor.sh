@@ -374,6 +374,9 @@ generate_qemu_options() {
 	qemu_options+=(size:--disable-dmg)
 	qemu_options+=(size:--disable-parallels)
 
+	# databricks numa support
+	qemu_options+=(size:--enable-numa)
+
 	#---------------------------------------------------------------------
 	# Enabled options
 
