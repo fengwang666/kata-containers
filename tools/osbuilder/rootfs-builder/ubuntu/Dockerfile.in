@@ -17,6 +17,7 @@ RUN apt-get update && apt-get --no-install-recommends install -y \
     autoconf \
     automake \
     binutils \
+    bison \
     build-essential \
     ca-certificates \
     chrony \
@@ -24,6 +25,7 @@ RUN apt-get update && apt-get --no-install-recommends install -y \
     curl \
     debianutils \
     debootstrap \
+    flex \
     g++ \
     gcc \
     git \

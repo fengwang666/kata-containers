@@ -124,6 +124,12 @@ IMAGE_REGISTRY      Hostname for the image registry used to pull down the rootfs
 KERNEL_MODULES_DIR  Path to a directory containing kernel modules to include in
                     the rootfs.
                     Default value: <empty>
+KERNEL_VERSION      The kernel version of the Kata VM. Needed to build perf.
+                    Default value: <empty>
+
+
+PERF                When set to "yes", the linux perf package is built to the rootfs.
+                    Default value: "yes"
 
 ROOTFS_DIR          Path to the directory that is populated with the rootfs.
                     Default value: <${script_name} path>/rootfs-<DISTRO-name>
@@ -418,6 +424,8 @@ build_rootfs_distro()
 			--env OS_VERSION="${OS_VERSION}" \
 			--env INSIDE_CONTAINER=1 \
 			--env SECCOMP="${SECCOMP}" \
+			--env PERF="${PERF}" \
+			--env KERNEL_VERSION="${KERNEL_VERSION}" \
 			--env DEBUG="${DEBUG}" \
 			--env HOME="/root" \
 			-v "${repo_dir}":"/kata-containers" \
@@ -534,6 +542,13 @@ EOT
 		# Remove user option, user could not exist in the rootfs
 		sed -i -e 's/^\(ExecStart=.*\)-u [[:alnum:]]*/\1/g' \
 		       -e '/^\[Unit\]/a ConditionPathExists=\/dev\/ptp0' ${chrony_systemd_service}
+	fi
+
+	if [ "${PERF}" == "yes" ]; then
+		info "Set up linux perf"
+		bash ${script_dir}/../../packaging/kernel/build-kernel.sh -v "${KERNEL_VERSION}" setup
+		bash ${script_dir}/../../packaging/kernel/build-kernel.sh -v "${KERNEL_VERSION}" build_perf
+		cp "perf" "${ROOTFS_DIR}/usr/bin"
 	fi
 
 	AGENT_DIR="${ROOTFS_DIR}/usr/bin"
