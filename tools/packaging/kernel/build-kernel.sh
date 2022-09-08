@@ -405,6 +405,16 @@ build_kernel() {
 	popd >>/dev/null
 }
 
+build_perf() {
+  local kernel_path=${1:-}
+	[ -n "${kernel_path}" ] || die "kernel_path not provided"
+	[ -d "${kernel_path}" ] || die "path to kernel does not exist, use ${script_name} setup"
+	pushd "${kernel_path}/tools/perf" >>/dev/null
+	make
+	mv "perf" ../../../
+	popd >>/dev/null
+}
+
 install_kata() {
 	local kernel_path=${1:-}
 	[ -n "${kernel_path}" ] || die "kernel_path not provided"
@@ -562,6 +572,9 @@ main() {
 	info "Kernel version: ${kernel_version}"
 
 	case "${subcmd}" in
+		build_perf)
+			build_perf "${kernel_path}"
+			;;
 		build)
 			build_kernel "${kernel_path}"
 			;;

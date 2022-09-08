@@ -48,6 +48,8 @@ build_image() {
 		DISTRO="${img_distro}" \
 		DEBUG="${DEBUG:-}" \
 		USE_DOCKER="1" \
+		PERF="yes" \
+		KERNEL_VERSION="${kernel_version}" \
 		IMG_OS_VERSION="${img_os_version}" \
 		ROOTFS_BUILD_DEST="${builddir}/rootfs-image"
 	mv -f "kata-containers.img" "${install_dir}/${image_name}"
@@ -89,6 +91,7 @@ main() {
 				#image information
 				img_distro=$(get_from_kata_deps "assets.image.architecture.${arch_target}.name")
 				img_os_version=$(get_from_kata_deps "assets.image.architecture.${arch_target}.version")
+				kernel_version=$(get_from_kata_deps "assets.kernel.version")
 				image_name="kata-${img_distro}-${img_os_version}.${image_type}"
 				;;
 			imagetype=initrd)

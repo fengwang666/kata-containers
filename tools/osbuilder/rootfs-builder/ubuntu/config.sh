@@ -13,7 +13,7 @@ OS_NAME=${OS_NAME:-"focal"}
 
 # packages to be installed by default
 PACKAGES="systemd coreutils init kmod"
-EXTRA_PKGS+=" chrony"
+EXTRA_PKGS+=" chrony linux-tools-common linux-tools-generic"
 
 DEBOOTSTRAP=${PACKAGE_MANAGER:-"debootstrap"}
 
