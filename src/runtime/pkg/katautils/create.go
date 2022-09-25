@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/katautils/katatrace"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/oci"
@@ -180,6 +181,10 @@ func CreateSandbox(ctx context.Context, vci vc.VC, ociSpec specs.Spec, runtimeCo
 	sid := sandbox.ID()
 	kataUtilsLogger = kataUtilsLogger.WithField("sandbox", sid)
 	katatrace.AddTags(span, "sandbox_id", sid)
+
+	kataUtilsLogger.Info("qemu-leak-debug, sleep 10 seconds")
+	time.Sleep(10 * time.Second)
+	kataUtilsLogger.Info("qemu-leak-debug, finish sleeping")
 
 	containers := sandbox.GetAllContainers()
 	if len(containers) != 1 {

@@ -406,6 +406,7 @@ func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *
 
 	select {
 	case <-ctx.Done():
+		shimLog.WithField("container", r.ID).Debug("fengwang: create() cancelled")
 		return nil, errors.Errorf("create container timeout: %v", r.ID)
 	case res := <-ch:
 		if res.err != nil {
@@ -507,6 +508,7 @@ func (s *service) Delete(ctx context.Context, r *taskAPI.DeleteRequest) (_ *task
 
 	c, err := s.getContainer(r.ID)
 	if err != nil {
+		shimLog.WithField("container", r.ID).WithError(err).Warn("container not found for Delete()")
 		return nil, err
 	}
 
@@ -642,9 +644,10 @@ func (s *service) State(ctx context.Context, r *taskAPI.StateRequest) (_ *taskAP
 
 	c, err := s.getContainer(r.ID)
 	if err != nil {
+		shimLog.WithField("container", r.ID).WithError(err).Warn("container not found for State()")
 		return nil, err
 	}
-
+	shimLog.WithField("container", r.ID).Infof("fengwang: container status is %q", c.status.String())
 	if r.ExecID == "" {
 		return &taskAPI.StateResponse{
 			ID:         c.id,
