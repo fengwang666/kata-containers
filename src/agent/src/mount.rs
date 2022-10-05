@@ -778,8 +778,14 @@ pub async fn add_storages(
             }
         };
 
-        // Todo need to rollback the mounted storage if err met.
-        let mount_point = res?;
+        let mount_point = match res {
+            Err(e) => {
+                let mut sb = sandbox.lock().await;
+                sb.unset_sandbox_storage(&storage.mount_point);
+                return Err(e)
+            },
+            Ok(m) => m,
+        };
 
         if !mount_point.is_empty() {
             mount_list.push(mount_point);
