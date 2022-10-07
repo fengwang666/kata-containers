@@ -413,8 +413,23 @@ impl AgentService {
                     "exec-id" => eid.clone(),
                 );
             }
-            p.signal(sig)?;
-        }
+
+            match p.signal(sig) {
+                Err(Errno::ESRCH) => {
+                    info!(
+                        sl!(),
+                        "signal encounter ESRCH, continue";
+                        "container-id" => cid.clone(),
+                        "exec-id" => eid.clone(),
+                        "pid" => p.pid,
+                        "signal" => sig,
+                    );
+                    ()
+                }
+                Err(err) => return Err(anyhow!(err)),
+                Ok(()) => (),
+            }
+        };
 
         if eid.is_empty() {
             // eid is empty, signal all the remaining processes in the container cgroup
