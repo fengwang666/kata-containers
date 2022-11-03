@@ -59,6 +59,8 @@ skip_config_checks="false"
 DESTDIR="${DESTDIR:-/}"
 #PREFIX=
 PREFIX="${PREFIX:-/usr}"
+#
+use_config_frags_dir="false"
 
 packaging_scripts_dir="${script_dir}/../scripts"
 source "${packaging_scripts_dir}/lib.sh"
@@ -91,6 +93,7 @@ Options:
 	-e          	: Enable experimental kernel.
 	-E          	: Enable arch-specific experimental kernel, arch info offered by "-a".
 	-f          	: Enable force generate config when setup.
+	-F          	: Enable fragmented config files.
 	-g <vendor> 	: GPU vendor, intel or nvidia.
 	-h          	: Display this help.
 	-k <path>   	: Path to kernel to build.
@@ -309,7 +312,7 @@ get_default_kernel_config() {
 	kernel_ver=$(get_major_kernel_version "${version}")
 
 	archfragdir="${default_config_frags_dir}/${kernel_arch}"
-	if [ -d "${archfragdir}" ]; then
+	if [ -d "${archfragdir}" ] && [ "${use_config_frags_dir}" = true ]; then
 		config="$(get_kernel_frag_path ${archfragdir} ${kernel_path} ${kernel_arch})"
 	else
 		[ "${hypervisor}" == "firecracker" ] && hypervisor="kvm"
@@ -496,6 +499,9 @@ main() {
 				;;
 			f)
 				force_setup_generate_config="true"
+				;;
+			F)
+				use_config_frags_dir="true"
 				;;
 			g)
 				gpu_vendor="${OPTARG}"
