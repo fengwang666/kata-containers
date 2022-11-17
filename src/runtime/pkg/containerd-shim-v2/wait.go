@@ -53,6 +53,16 @@ func wait(ctx context.Context, s *service, c *container, execID string) (int32, 
 			"container": c.id,
 			"pid":       processID,
 		}).Error("Wait for process failed")
+
+		// set return code if wait failed
+		if ret == 0 {
+			ret = exitCode255
+		}
+		if s.sandbox.IsAgentDead() {
+			shimLog.WithField("sandbox", s.sandbox.ID()).Error("Kata agent is dead, let monitor force delete the shim")
+			s.monitor <- err
+			return ret, nil
+		}
 	}
 
 	timeStamp := time.Now()

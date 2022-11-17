@@ -2399,6 +2399,10 @@ func (s *Sandbox) GetAgentURL() (string, error) {
 	return s.agent.getAgentURL()
 }
 
+func (s *Sandbox) IsAgentDead() bool {
+	return s.agent.isDead()
+}
+
 // GuestVolumeStats return the filesystem stat of a given volume in the guest.
 func (s *Sandbox) GuestVolumeStats(ctx context.Context, volumePath string) ([]byte, error) {
 	guestMountPath, err := s.guestMountPath(volumePath)
