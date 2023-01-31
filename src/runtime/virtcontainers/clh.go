@@ -20,6 +20,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -38,6 +39,8 @@ import (
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/device/config"
 	hv "github.com/kata-containers/kata-containers/src/runtime/pkg/hypervisors"
 	"github.com/kata-containers/kata-containers/src/runtime/pkg/katautils/katatrace"
+	pkgUtils "github.com/kata-containers/kata-containers/src/runtime/pkg/utils"
+	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/pkg/rootless"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/types"
 	"github.com/kata-containers/kata-containers/src/runtime/virtcontainers/utils"
 )
@@ -657,7 +660,7 @@ func (clh *cloudHypervisor) StartVM(ctx context.Context, timeout int) error {
 	clh.Logger().WithField("function", "StartVM").Info("starting Sandbox")
 
 	vmPath := filepath.Join(clh.config.VMStorePath, clh.id)
-	err := os.MkdirAll(vmPath, DirMode)
+	err := utils.MkdirAllWithInheritedOwner(vmPath, DirMode)
 	if err != nil {
 		return err
 	}
@@ -1341,8 +1344,15 @@ func (clh *cloudHypervisor) launchClh() (int, error) {
 			cmdHypervisor.Stdout = clh.console
 		}
 	}
-
 	cmdHypervisor.Stderr = cmdHypervisor.Stdout
+
+	attr := syscall.SysProcAttr{}
+	attr.Credential = &syscall.Credential{
+		Uid:    clh.config.Uid,
+		Gid:    clh.config.Gid,
+		Groups: clh.config.Groups,
+	}
+	cmdHypervisor.SysProcAttr = &attr
 
 	err = utils.StartCmd(cmdHypervisor)
 	if err != nil {
@@ -1664,6 +1674,29 @@ func (clh *cloudHypervisor) cleanupVM(force bool) error {
 			}
 			clh.Logger().WithError(err).WithField("path", dir).Warnf("failed to remove vm path")
 		}
+	}
+	if rootless.IsRootless() {
+		if _, err := user.Lookup(clh.config.User); err != nil {
+			clh.Logger().WithError(err).WithFields(
+				log.Fields{
+					"user": clh.config.User,
+					"uid":  clh.config.Uid,
+				}).Warn("failed to find the user, it might have been removed")
+			return nil
+		}
+
+		if err := pkgUtils.RemoveVmmUser(clh.config.User); err != nil {
+			clh.Logger().WithError(err).WithFields(
+				log.Fields{
+					"user": clh.config.User,
+					"uid":  clh.config.Uid,
+				}).Warn("failed to delete the user")
+		}
+		clh.Logger().WithFields(
+			log.Fields{
+				"user": clh.config.User,
+				"uid":  clh.config.Uid,
+			}).Debug("successfully removed the non root user")
 	}
 
 	clh.reset()

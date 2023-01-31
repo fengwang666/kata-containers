@@ -1000,6 +1000,7 @@ func newClhHypervisorConfig(h hypervisor) (vc.HypervisorConfig, error) {
 		EnableAnnotations:              h.EnableAnnotations,
 		DisableSeccomp:                 h.DisableSeccomp,
 		ConfidentialGuest:              h.ConfidentialGuest,
+		Rootless:                       h.Rootless,
 		DisableSeLinux:                 h.DisableSeLinux,
 		NetRateLimiterBwMaxRate:        h.getNetRateLimiterBwMaxRate(),
 		NetRateLimiterBwOneTimeBurst:   h.getNetRateLimiterBwOneTimeBurst(),
