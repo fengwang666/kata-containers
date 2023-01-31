@@ -10,23 +10,24 @@ on:
     paths:
       - tools/**
       - versions.yaml
+  push:
 
 jobs:
   build-asset:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         asset:
           - kernel
           - shim-v2
-          - qemu
           - cloud-hypervisor
-          - firecracker
           - rootfs-image
           - rootfs-initrd
           - virtiofsd
-          - nydus
     steps:
+      - name: cleanup #https://github.com/actions/checkout/issues/211
+        run: |
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
       - name: Install docker
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'force-skip-ci') }}
@@ -53,9 +54,12 @@ jobs:
           if-no-files-found: error
 
   create-kata-tarball:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-asset
     steps:
+      - name: cleanup #https://github.com/actions/checkout/issues/211
+        run: |
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
       - name: get-artifacts
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'force-skip-ci') }}
@@ -75,8 +79,11 @@ jobs:
           path: kata-static.tar.xz
 
   make-kata-tarball:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
+      - name: cleanup #https://github.com/actions/checkout/issues/211
+        run: |
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
       - name: make kata-tarball
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'force-skip-ci') }}
