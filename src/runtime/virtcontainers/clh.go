@@ -1354,8 +1354,15 @@ func (clh *cloudHypervisor) launchClh() (int, error) {
 			cmdHypervisor.Stdout = clh.console
 		}
 	}
-
 	cmdHypervisor.Stderr = cmdHypervisor.Stdout
+
+	attr := syscall.SysProcAttr{}
+	attr.Credential = &syscall.Credential{
+		Uid:    clh.config.Uid,
+		Gid:    clh.config.Gid,
+		Groups: clh.config.Groups,
+	}
+	cmdHypervisor.SysProcAttr = &attr
 
 	err = utils.StartCmd(cmdHypervisor)
 	if err != nil {
