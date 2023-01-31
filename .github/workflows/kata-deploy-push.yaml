@@ -10,6 +10,7 @@ on:
     paths:
       - tools/**
       - versions.yaml
+  push:
 
 jobs:
   build-asset:
