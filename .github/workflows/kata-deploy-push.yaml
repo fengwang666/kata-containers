@@ -20,6 +20,7 @@ jobs:
         asset:
           - kernel
           - shim-v2
+          - qemu
           - cloud-hypervisor
           - rootfs-image
           - rootfs-initrd
