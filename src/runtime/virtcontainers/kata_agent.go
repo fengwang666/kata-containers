@@ -113,41 +113,42 @@ var (
 )
 
 const (
-	grpcCheckRequest                 = "grpc.CheckRequest"
-	grpcExecProcessRequest           = "grpc.ExecProcessRequest"
-	grpcCreateSandboxRequest         = "grpc.CreateSandboxRequest"
-	grpcDestroySandboxRequest        = "grpc.DestroySandboxRequest"
-	grpcCreateContainerRequest       = "grpc.CreateContainerRequest"
-	grpcStartContainerRequest        = "grpc.StartContainerRequest"
-	grpcRemoveContainerRequest       = "grpc.RemoveContainerRequest"
-	grpcSignalProcessRequest         = "grpc.SignalProcessRequest"
-	grpcUpdateRoutesRequest          = "grpc.UpdateRoutesRequest"
-	grpcUpdateInterfaceRequest       = "grpc.UpdateInterfaceRequest"
-	grpcUpdateEphemeralMountsRequest = "grpc.UpdateEphemeralMountsRequest"
-	grpcListInterfacesRequest        = "grpc.ListInterfacesRequest"
-	grpcListRoutesRequest            = "grpc.ListRoutesRequest"
-	grpcAddARPNeighborsRequest       = "grpc.AddARPNeighborsRequest"
-	grpcOnlineCPUMemRequest          = "grpc.OnlineCPUMemRequest"
-	grpcUpdateContainerRequest       = "grpc.UpdateContainerRequest"
-	grpcWaitProcessRequest           = "grpc.WaitProcessRequest"
-	grpcTtyWinResizeRequest          = "grpc.TtyWinResizeRequest"
-	grpcWriteStreamRequest           = "grpc.WriteStreamRequest"
-	grpcCloseStdinRequest            = "grpc.CloseStdinRequest"
-	grpcStatsContainerRequest        = "grpc.StatsContainerRequest"
-	grpcPauseContainerRequest        = "grpc.PauseContainerRequest"
-	grpcResumeContainerRequest       = "grpc.ResumeContainerRequest"
-	grpcReseedRandomDevRequest       = "grpc.ReseedRandomDevRequest"
-	grpcGuestDetailsRequest          = "grpc.GuestDetailsRequest"
-	grpcMemHotplugByProbeRequest     = "grpc.MemHotplugByProbeRequest"
-	grpcCopyFileRequest              = "grpc.CopyFileRequest"
-	grpcSetGuestDateTimeRequest      = "grpc.SetGuestDateTimeRequest"
-	grpcGetOOMEventRequest           = "grpc.GetOOMEventRequest"
-	grpcGetMetricsRequest            = "grpc.GetMetricsRequest"
-	grpcAddSwapRequest               = "grpc.AddSwapRequest"
-	grpcVolumeStatsRequest           = "grpc.VolumeStatsRequest"
-	grpcResizeVolumeRequest          = "grpc.ResizeVolumeRequest"
-	grpcGetIPTablesRequest           = "grpc.GetIPTablesRequest"
-	grpcSetIPTablesRequest           = "grpc.SetIPTablesRequest"
+	grpcCheckRequest                          = "grpc.CheckRequest"
+	grpcExecProcessRequest                    = "grpc.ExecProcessRequest"
+	grpcCreateSandboxRequest                  = "grpc.CreateSandboxRequest"
+	grpcDestroySandboxRequest                 = "grpc.DestroySandboxRequest"
+	grpcCreateContainerRequest                = "grpc.CreateContainerRequest"
+	grpcStartContainerRequest                 = "grpc.StartContainerRequest"
+	grpcRemoveContainerRequest                = "grpc.RemoveContainerRequest"
+	grpcSignalProcessRequest                  = "grpc.SignalProcessRequest"
+	grpcUpdateRoutesRequest                   = "grpc.UpdateRoutesRequest"
+	grpcUpdateInterfaceRequest                = "grpc.UpdateInterfaceRequest"
+	grpcUpdateEphemeralMountsRequest          = "grpc.UpdateEphemeralMountsRequest"
+	grpcRemoveStaleVirtiofsShareMountsRequest = "grpc.RemoveStaleVirtiofsShareMountsRequest"
+	grpcListInterfacesRequest                 = "grpc.ListInterfacesRequest"
+	grpcListRoutesRequest                     = "grpc.ListRoutesRequest"
+	grpcAddARPNeighborsRequest                = "grpc.AddARPNeighborsRequest"
+	grpcOnlineCPUMemRequest                   = "grpc.OnlineCPUMemRequest"
+	grpcUpdateContainerRequest                = "grpc.UpdateContainerRequest"
+	grpcWaitProcessRequest                    = "grpc.WaitProcessRequest"
+	grpcTtyWinResizeRequest                   = "grpc.TtyWinResizeRequest"
+	grpcWriteStreamRequest                    = "grpc.WriteStreamRequest"
+	grpcCloseStdinRequest                     = "grpc.CloseStdinRequest"
+	grpcStatsContainerRequest                 = "grpc.StatsContainerRequest"
+	grpcPauseContainerRequest                 = "grpc.PauseContainerRequest"
+	grpcResumeContainerRequest                = "grpc.ResumeContainerRequest"
+	grpcReseedRandomDevRequest                = "grpc.ReseedRandomDevRequest"
+	grpcGuestDetailsRequest                   = "grpc.GuestDetailsRequest"
+	grpcMemHotplugByProbeRequest              = "grpc.MemHotplugByProbeRequest"
+	grpcCopyFileRequest                       = "grpc.CopyFileRequest"
+	grpcSetGuestDateTimeRequest               = "grpc.SetGuestDateTimeRequest"
+	grpcGetOOMEventRequest                    = "grpc.GetOOMEventRequest"
+	grpcGetMetricsRequest                     = "grpc.GetMetricsRequest"
+	grpcAddSwapRequest                        = "grpc.AddSwapRequest"
+	grpcVolumeStatsRequest                    = "grpc.VolumeStatsRequest"
+	grpcResizeVolumeRequest                   = "grpc.ResizeVolumeRequest"
+	grpcGetIPTablesRequest                    = "grpc.GetIPTablesRequest"
+	grpcSetIPTablesRequest                    = "grpc.SetIPTablesRequest"
 )
 
 // newKataAgent returns an agent from an agent type.
@@ -1484,7 +1485,7 @@ func (k *kataAgent) handleLocalStorage(mounts []specs.Mount, sandboxID string, r
 				dir_options = append(dir_options, fmt.Sprintf("%s=%d", fsGid, stat.Gid))
 			}
 
-			// Set the mount source path to a the desired directory point in the VM.
+			// Set the mount source path to the desired directory point in the VM.
 			// In this case it is located in the sandbox directory.
 			// We rely on the fact that the first container in the VM has the same ID as the sandbox ID.
 			// In Kubernetes, this is usually the pause container and we depend on it existing for
@@ -1947,6 +1948,14 @@ func (k *kataAgent) reseedRNG(ctx context.Context, data []byte) error {
 	return err
 }
 
+func (k *kataAgent) removeStaleVirtiofsShareMounts(ctx context.Context, mountPaths []string) error {
+	_, err := k.sendReq(ctx, &grpc.RemoveStaleVirtiofsShareMountsRequest{
+		MountPaths: mountPaths,
+	})
+
+	return err
+}
+
 type reqFunc func(context.Context, interface{}) (interface{}, error)
 
 func (k *kataAgent) installReqFunc(c *kataclient.AgentClient) {
@@ -1983,6 +1992,9 @@ func (k *kataAgent) installReqFunc(c *kataclient.AgentClient) {
 	}
 	k.reqHandlers[grpcUpdateEphemeralMountsRequest] = func(ctx context.Context, req interface{}) (interface{}, error) {
 		return k.client.AgentServiceClient.UpdateEphemeralMounts(ctx, req.(*grpc.UpdateEphemeralMountsRequest))
+	}
+	k.reqHandlers[grpcRemoveStaleVirtiofsShareMountsRequest] = func(ctx context.Context, req interface{}) (interface{}, error) {
+		return k.client.AgentServiceClient.RemoveStaleVirtiofsShareMounts(ctx, req.(*grpc.RemoveStaleVirtiofsShareMountsRequest))
 	}
 	k.reqHandlers[grpcListInterfacesRequest] = func(ctx context.Context, req interface{}) (interface{}, error) {
 		return k.client.AgentServiceClient.ListInterfaces(ctx, req.(*grpc.ListInterfacesRequest))

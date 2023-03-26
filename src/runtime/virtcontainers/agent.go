@@ -156,6 +156,9 @@ type agent interface {
 	// updateEphemeralMounts will tell the agent to update tmpfs mounts in the Sandbox.
 	updateEphemeralMounts(ctx context.Context, storages []*grpc.Storage) error
 
+	// removeStaleVirtiofsShareMounts will tell the agent to remove stale virtiofs share mounts in the guest.
+	removeStaleVirtiofsShareMounts(ctx context.Context, mountPaths []string) error
+
 	// updateRoutes will tell the agent to update route table for an existed Sandbox.
 	updateRoutes(ctx context.Context, routes []*pbTypes.Route) ([]*pbTypes.Route, error)
 

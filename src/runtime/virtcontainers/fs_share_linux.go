@@ -311,7 +311,9 @@ func (f *FilesystemShare) UnshareFile(ctx context.Context, c *Container, m *Moun
 			syscall.Rmdir(m.HostPath)
 		}
 	}
-
+	if err := f.sandbox.agent.removeStaleVirtiofsShareMounts(ctx, []string{filepath.Join(kataGuestSharedDir(), filepath.Base(m.HostPath))}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -472,7 +474,9 @@ func (f *FilesystemShare) UnshareRootFilesystem(ctx context.Context, c *Containe
 	if err := syscall.Rmdir(shareDir); err != nil {
 		f.Logger().WithError(err).WithField("share-dir", shareDir).Warn("Could not remove container share dir")
 	}
-
+	if err := f.sandbox.agent.removeStaleGuestMounts(ctx, m.HostPath); err != nil {
+		return err
+	}
 	return nil
 
 }

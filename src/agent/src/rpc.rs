@@ -1014,6 +1014,27 @@ impl agent_ttrpc::AgentService for AgentService {
         }
     }
 
+    async fn remove_stale_virtiofs_share_mounts(
+        &self,
+        ctx: &TtrpcContext,
+        req: protocols::agent::RemoveStaleVirtiofsShareMountsRequest,
+    ) -> ttrpc::Result<Empty> {
+        trace_rpc_call!(ctx, "remove_stale_virtiofs_share_mounts", req);
+        is_allowed!(req);
+
+        for m in req.mount_paths.iter() {
+            // stat the mount point, virtiofs daemon will remove the stale cache and release the fds if the mount point doesn't exist any more.
+            // More details in https://github.com/kata-containers/kata-containers/issues/6455#issuecomment-1477137277
+            if let Err(e) = stat::stat(m) {
+                info!(
+                    sl!(),
+                    "stat {} failed: {:?}", m, e
+                );
+            }
+        }
+        Ok(Empty::new())
+    }
+
     async fn get_ip_tables(
         &self,
         ctx: &TtrpcContext,

@@ -126,6 +126,11 @@ func (n *mockAgent) updateEphemeralMounts(ctx context.Context, storages []*grpc.
 	return nil
 }
 
+// removeStaleVirtiofsShareMounts is the Noop agent removeStaleVirtiofsShareMounts implementation. It does nothing.
+func (n *mockAgent) removeStaleVirtiofsShareMounts(ctx context.Context, mountPaths []string) error {
+	return nil
+}
+
 // check is the Noop agent health checker. It does nothing.
 func (n *mockAgent) check(ctx context.Context) error {
 	return nil
